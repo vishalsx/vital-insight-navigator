@@ -1,13 +1,25 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { MainLayout } from "@/components/layout/MainLayout";
+import Dashboard from "./Dashboard";
+import { Route, Routes } from "react-router-dom";
+import PatientsList from "./PatientsList";
+import PatientDetails from "./PatientDetails";
+import MedicalRecords from "./MedicalRecords";
+import Analytics from "./Analytics";
+import NotFound from "./NotFound";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="patients" element={<PatientsList />} />
+        <Route path="patients/:id" element={<PatientDetails />} />
+        <Route path="records" element={<MedicalRecords />} />
+        <Route path="analytics" element={<Analytics />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 };
 
