@@ -36,63 +36,71 @@ const RecordsTable = ({ records, onViewReport }: RecordsTableProps) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {records.map((record) => (
-            <TableRow key={record.id}>
-              <TableCell className="font-medium">
-                <Link
-                  to={`/records/${record.id}`}
-                  className="text-primary hover:underline flex items-center"
-                >
-                  <FileText className="h-4 w-4 mr-1" />
-                  {record.id}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Link
-                  to={`/patients/${record.patientId}`}
-                  className="hover:underline"
-                >
-                  {record.patientName}
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({record.patientId})
-                  </span>
-                </Link>
-              </TableCell>
-              <TableCell>{record.recordType}</TableCell>
-              <TableCell>{record.date}</TableCell>
-              <TableCell>{record.doctor}</TableCell>
-              <TableCell>{record.department}</TableCell>
-              <TableCell>
-                <Badge
-                  variant={
-                    record.status === "Critical"
-                      ? "destructive"
-                      : record.status === "Pending"
-                      ? "outline"
-                      : "default"
-                  }
-                >
-                  {record.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                {record.scannedReport ? (
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => onViewReport(record)}
-                    title="View scanned report"
-                  >
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button variant="ghost" size="icon">
-                    <Download className="h-4 w-4" />
-                  </Button>
-                )}
+          {records.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                No medical records found
               </TableCell>
             </TableRow>
-          ))}
+          ) : (
+            records.map((record) => (
+              <TableRow key={record.id}>
+                <TableCell className="font-medium">
+                  <Link
+                    to={`/records/${record.id}`}
+                    className="text-primary hover:underline flex items-center"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    {record.id}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <Link
+                    to={`/patients/${record.patientId}`}
+                    className="hover:underline"
+                  >
+                    {record.patientName}
+                    <span className="text-xs text-muted-foreground ml-1">
+                      ({record.patientId})
+                    </span>
+                  </Link>
+                </TableCell>
+                <TableCell>{record.recordType}</TableCell>
+                <TableCell>{record.date}</TableCell>
+                <TableCell>{record.doctor}</TableCell>
+                <TableCell>{record.department}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      record.status === "Critical"
+                        ? "destructive"
+                        : record.status === "Pending"
+                        ? "outline"
+                        : "default"
+                    }
+                  >
+                    {record.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  {record.scannedReport ? (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => onViewReport(record)}
+                      title="View scanned report"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="icon">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
     </div>

@@ -17,7 +17,7 @@ const RecordsHeader = ({ onScanReport }: RecordsHeaderProps) => {
         </p>
       </div>
       <div className="flex gap-2">
-        <Button onClick={onScanReport}>
+        <Button onClick={onScanReport} variant="default" className="bg-primary text-primary-foreground hover:bg-primary/90">
           <ScanLine className="mr-2 h-4 w-4" /> Scan Report
         </Button>
         <Button>
