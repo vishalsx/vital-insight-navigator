@@ -20,10 +20,21 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Plus, FileText, Download } from "lucide-react";
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  FileText, 
+  Download, 
+  ScanLine,
+  Upload 
+} from "lucide-react";
+import ScanReportDialog, { ReportData } from "@/components/medical-records/ScanReportDialog";
+import ViewReportDialog from "@/components/medical-records/ViewReportDialog";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data
-const records = [
+const initialRecords = [
   {
     id: "REC-2023-001",
     patientId: "P-1001",
@@ -106,8 +117,26 @@ const records = [
   },
 ];
 
+// Extended type for medical records
+interface MedicalRecord {
+  id: string;
+  patientId: string;
+  patientName: string;
+  recordType: string;
+  date: string;
+  doctor: string;
+  department: string;
+  status: string;
+  scannedReport?: ReportData;
+}
+
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [records, setRecords] = useState<MedicalRecord[]>(initialRecords);
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
+  const { toast } = useToast();
   
   const filteredRecords = records.filter(
     (record) =>
@@ -116,6 +145,45 @@ export default function MedicalRecords() {
       record.patientId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.recordType.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleScanComplete = (reportData: ReportData) => {
+    // Find a matching patient for this report
+    const matchingPatient = records.find(record => record.patientId === reportData.patientId);
+    
+    // Create a new medical record entry
+    const newRecord: MedicalRecord = {
+      id: reportData.id,
+      patientId: reportData.patientId,
+      patientName: matchingPatient?.patientName || "Unknown Patient",
+      recordType: reportData.reportType,
+      date: reportData.date,
+      doctor: "AI Analysis System",
+      department: "Diagnostics",
+      status: "Completed",
+      scannedReport: reportData,
+    };
+    
+    // Add the new record to our records list
+    setRecords([newRecord, ...records]);
+    
+    toast({
+      title: "Report Added",
+      description: `${reportData.reportType} report has been added to medical records.`,
+    });
+  };
+
+  const handleViewReport = (record: MedicalRecord) => {
+    if (record.scannedReport) {
+      setSelectedReport(record.scannedReport);
+      setViewReportDialogOpen(true);
+    } else {
+      toast({
+        title: "No scanned report",
+        description: "This record doesn't have a scanned report to view.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -126,9 +194,14 @@ export default function MedicalRecords() {
             View and manage medical records
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" /> Create New Record
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setScanDialogOpen(true)}>
+            <ScanLine className="mr-2 h-4 w-4" /> Scan Report
+          </Button>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Create New Record
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
@@ -232,15 +305,40 @@ export default function MedicalRecords() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon">
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  {record.scannedReport ? (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleViewReport(record)}
+                      title="View scanned report"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <Button variant="ghost" size="icon">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Scan Report Dialog */}
+      <ScanReportDialog
+        open={scanDialogOpen}
+        onOpenChange={setScanDialogOpen}
+        onScanComplete={handleScanComplete}
+      />
+
+      {/* View Report Dialog */}
+      <ViewReportDialog
+        open={viewReportDialogOpen}
+        onOpenChange={setViewReportDialogOpen}
+        report={selectedReport}
+      />
     </div>
   );
 }

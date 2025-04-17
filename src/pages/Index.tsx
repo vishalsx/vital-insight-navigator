@@ -19,6 +19,7 @@ const Index = () => {
         <Route path="patients" element={<PatientsList />} />
         <Route path="patients/:id" element={<PatientDetails />} />
         <Route path="records" element={<MedicalRecords />} />
+        <Route path="records/:id" element={<PatientDetails />} /> {/* Added route for medical record details */}
         <Route path="analytics" element={<Analytics />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="resources" element={<Resources />} />
