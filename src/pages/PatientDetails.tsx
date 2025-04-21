@@ -1,11 +1,33 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, FileText, Pill, BarChart2, MessageSquare, AlertCircle, Clock, Calendar, Activity } from "lucide-react";
+import { 
+  Edit, 
+  Trash2, 
+  Plus, 
+  FileText, 
+  Pill, 
+  BarChart2, 
+  MessageSquare, 
+  AlertCircle, 
+  Clock, 
+  Calendar, 
+  Activity 
+} from "lucide-react";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer 
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import PatientEditDialog from "@/components/patients/PatientEditDialog";
 import { useToast } from "@/hooks/use-toast";
