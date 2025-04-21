@@ -55,7 +55,7 @@ export default function MedicalRecords() {
       doctor: rec.doctor || "",
       department: rec.department || "",
       status: rec.status || "",
-      scannedReport: rec.scanned_report ? rec.scanned_report as ReportData : undefined,
+      scannedReport: rec.scanned_report ? (rec.scanned_report as unknown as ReportData) : undefined,
     }));
     setRecords(mappedRecords);
   };
@@ -103,6 +103,12 @@ export default function MedicalRecords() {
       });
       return;
     }
+    
+    // Fix the type issue by properly casting the scanned_report
+    const scannedReport = data.scanned_report 
+      ? (data.scanned_report as unknown as ReportData) 
+      : undefined;
+      
     const newRecord: MedicalRecord = {
       id: data.id,
       patientId: data.patient_id,
@@ -112,7 +118,7 @@ export default function MedicalRecords() {
       doctor: data.doctor || "",
       department: data.department || "",
       status: data.status || "",
-      scannedReport: data.scanned_report as unknown as ReportData,
+      scannedReport: scannedReport,
     };
     setRecords(prev => [newRecord, ...prev]);
     toast({
@@ -139,15 +145,33 @@ export default function MedicalRecords() {
       });
       return;
     }
-    const { data, error } = await supabase.from("medical_records").insert({
+    
+    // Create the payload with proper type for scanned_report
+    const payload: any = {
       patient_id: formData.patientId,
       record_type: formData.recordType,
       date: formData.date,
       doctor: formData.doctor,
       department: formData.department || "",
       status: formData.status || "",
-      scanned_report: formData.notes ? { content: formData.notes } : null,
-    }).select().single();
+    };
+    
+    // Only add scanned_report if notes exist
+    if (formData.notes) {
+      payload.scanned_report = { 
+        id: `REC-${Date.now().toString().slice(-6)}`,
+        patientId: formData.patientId,
+        reportType: formData.recordType,
+        date: formData.date,
+        content: formData.notes 
+      };
+    }
+    
+    const { data, error } = await supabase.from("medical_records")
+      .insert(payload)
+      .select()
+      .single();
+      
     if (error) {
       toast({
         title: "Failed to add record",
@@ -156,6 +180,12 @@ export default function MedicalRecords() {
       });
       return;
     }
+    
+    // Fix the type issue by properly casting the scanned_report
+    const scannedReport = data.scanned_report 
+      ? (data.scanned_report as unknown as ReportData) 
+      : undefined;
+      
     const newRecord: MedicalRecord = {
       id: data.id,
       patientId: data.patient_id,
@@ -165,7 +195,7 @@ export default function MedicalRecords() {
       doctor: data.doctor || "",
       department: data.department || "",
       status: data.status || "",
-      scannedReport: data.scanned_report || undefined,
+      scannedReport: scannedReport,
     };
     setRecords(prev => [newRecord, ...prev]);
     toast({
@@ -286,4 +316,3 @@ export default function MedicalRecords() {
     </div>
   );
 }
-// End of MedicalRecords.tsx
