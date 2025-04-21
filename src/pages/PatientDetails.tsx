@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -492,7 +491,7 @@ export default function PatientDetails() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis />
-                        <Tooltip />
+                        <RechartsTooltip />
                         <Line
                           type="monotone"
                           dataKey="systolic"
