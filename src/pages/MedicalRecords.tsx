@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -9,6 +8,9 @@ import ViewReportDialog from "@/components/medical-records/ViewReportDialog";
 import { MedicalRecord } from "@/types/medicalRecords";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPatientMap } from "@/supabasePatients";
+import { Button } from "@/components/ui/button";
+import { Trash2, Pencil } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 // Types for patient mapping
 type PatientMap = { [patientId: string]: string };
@@ -21,6 +23,7 @@ export default function MedicalRecords() {
   const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
   const [patientMap, setPatientMap] = useState<PatientMap>({});
   const { toast } = useToast();
+  const [recordToEdit, setRecordToEdit] = useState<MedicalRecord | null>(null);
 
   // Fetch patients for ID-name mapping
   useEffect(() => {
@@ -118,6 +121,24 @@ export default function MedicalRecords() {
     });
   };
 
+  // Edit a record
+  const handleEditRecord = async (record: MedicalRecord) => {
+    // TODO: Implement edit dialog UI.
+    toast({ title: "Edit not implemented yet", description: "Feature coming soon!" });
+  };
+
+  // Delete a record
+  const handleDeleteRecord = async (record: MedicalRecord) => {
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+    const { error } = await supabase.from("medical_records").delete().eq("id", record.id);
+    if (error) {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+      return;
+    }
+    setRecords(prev => prev.filter(r => r.id !== record.id));
+    toast({ title: "Record deleted" });
+  };
+
   // View scanned report dialog open handler
   const handleViewReport = (record: MedicalRecord) => {
     if (record.scannedReport) {
@@ -136,16 +157,49 @@ export default function MedicalRecords() {
     <div className="space-y-6">
       <RecordsHeader onScanReport={() => setScanDialogOpen(true)} />
       <RecordsSearchFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-      <RecordsTable records={filteredRecords} onViewReport={handleViewReport} />
-
-      {/* Scan Report Dialog */}
+      <div className="rounded-md border bg-card overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Doctor</th>
+              <th>Status</th>
+              <th className="w-28"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRecords.map((record) => (
+              <tr key={record.id}>
+                <td>{record.patientName}</td>
+                <td>{record.recordType}</td>
+                <td>{record.date}</td>
+                <td>{record.doctor}</td>
+                <td>{record.status}</td>
+                <td className="flex gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => handleEditRecord(record)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteRecord(record)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleViewReport(record)}>
+                    View
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Original Table and other dialogs */}
       <ScanReportDialog
         open={scanDialogOpen}
         onOpenChange={setScanDialogOpen}
         onScanComplete={handleScanComplete}
       />
 
-      {/* View Report Dialog */}
       <ViewReportDialog
         open={viewReportDialogOpen}
         onOpenChange={setViewReportDialogOpen}

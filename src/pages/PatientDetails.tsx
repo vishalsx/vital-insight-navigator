@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,28 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Edit,
-  Clock,
-  Calendar,
-  Activity,
-  FileText,
-  Pill,
-  BarChart2,
-  MessageSquare,
-  AlertCircle,
-} from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { Edit, Trash2, Plus, FileText, Pill, BarChart2, MessageSquare, AlertCircle, Clock, Calendar, Activity } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import PatientEditDialog from "@/components/patients/PatientEditDialog";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock patient data
 const patient = {
   id: "P-1001",
   name: "Emily Johnson",
@@ -47,7 +29,6 @@ const patient = {
   status: "Active",
 };
 
-// Mock vitals data for chart
 const vitalsData = [
   {
     date: "Jan",
@@ -87,7 +68,6 @@ const vitalsData = [
   },
 ];
 
-// Mock medical history
 const medicalHistory = [
   {
     date: "2023-07-15",
@@ -119,7 +99,6 @@ const medicalHistory = [
   },
 ];
 
-// Mock medications
 const medications = [
   {
     name: "Lisinopril",
@@ -153,6 +132,41 @@ const medications = [
 export default function PatientDetails() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState("overview");
+  const [patient, setPatient] = useState<any>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const { toast } = useToast();
+
+  const fetchPatient = async () => {
+    if (!id) return;
+    const { data, error } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
+    if (error) {
+      toast({ title: "Failed to fetch patient", description: error.message, variant: "destructive" });
+      setPatient(null);
+      return;
+    }
+    setPatient(data);
+  };
+
+  useEffect(() => {
+    fetchPatient();
+    // eslint-disable-next-line
+  }, [id]);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    if (!window.confirm("Are you sure you want to delete this patient? This cannot be undone.")) return;
+    const { error } = await supabase.from("patients").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Patient deleted" });
+    window.location.href = "/patients";
+  };
+
+  if (!patient) {
+    return <div className="p-8">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -163,9 +177,14 @@ export default function PatientDetails() {
             View and manage patient information
           </p>
         </div>
-        <Button variant="outline">
-          <Edit className="mr-2 h-4 w-4" /> Edit Patient
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setEditOpen(true)}>
+            <Edit className="mr-2 h-4 w-4" /> Edit Patient
+          </Button>
+          <Button variant="destructive" onClick={handleDelete}>
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -511,6 +530,13 @@ export default function PatientDetails() {
           </Tabs>
         </div>
       </div>
+
+      <PatientEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSuccess={fetchPatient}
+        patient={patient}
+      />
     </div>
   );
 }

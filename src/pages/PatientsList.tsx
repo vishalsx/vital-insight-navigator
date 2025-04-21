@@ -1,28 +1,15 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Filter, Plus, Trash2, Pencil } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import PatientEditDialog from "@/components/patients/PatientEditDialog";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
 const patients = [
   {
     id: "P-1001",
@@ -108,12 +95,52 @@ const patients = [
 
 export default function PatientsList() {
   const [searchTerm, setSearchTerm] = useState("");
-  
+  const [patients, setPatients] = useState<any[]>([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [currentPatient, setCurrentPatient] = useState<any | null>(null);
+  const { toast } = useToast();
+
+  const fetchPatients = async () => {
+    const { data, error } = await supabase.from("patients").select("*").order("name");
+    if (error) {
+      toast({ title: "Failed to fetch patients", description: error.message, variant: "destructive" });
+      setPatients([]);
+      return;
+    }
+    setPatients(data || []);
+  };
+
+  useEffect(() => {
+    fetchPatients();
+    // eslint-disable-next-line
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this patient?")) return;
+    const { error } = await supabase.from("patients").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Patient deleted" });
+      fetchPatients();
+    }
+  };
+
+  const handleEdit = (patient: any) => {
+    setCurrentPatient(patient);
+    setEditDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setCurrentPatient(null);
+    setEditDialogOpen(true);
+  };
+
   const filteredPatients = patients.filter(
     (patient) =>
-      patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.condition.toLowerCase().includes(searchTerm.toLowerCase())
+      (patient.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient.condition || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -125,7 +152,7 @@ export default function PatientsList() {
             Manage and view your patient records
           </p>
         </div>
-        <Button>
+        <Button onClick={handleAdd}>
           <Plus className="mr-2 h-4 w-4" /> Add New Patient
         </Button>
       </div>
@@ -162,17 +189,18 @@ export default function PatientsList() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Patient ID</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Age/Gender</TableHead>
+              <TableHead>Gender</TableHead>
+              <TableHead>DOB</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Primary Condition</TableHead>
-              <TableHead>Last Visit</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -187,12 +215,10 @@ export default function PatientsList() {
                   </Link>
                 </TableCell>
                 <TableCell>{patient.name}</TableCell>
-                <TableCell>
-                  {patient.age} / {patient.gender}
-                </TableCell>
-                <TableCell>{patient.contact}</TableCell>
+                <TableCell>{patient.gender}</TableCell>
+                <TableCell>{patient.dob}</TableCell>
+                <TableCell>{patient.phone}</TableCell>
                 <TableCell>{patient.condition}</TableCell>
-                <TableCell>{patient.lastVisit}</TableCell>
                 <TableCell>
                   <Badge
                     variant={
@@ -206,11 +232,27 @@ export default function PatientsList() {
                     {patient.status}
                   </Badge>
                 </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(patient)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(patient.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      <PatientEditDialog
+        open={editDialogOpen}
+        onOpenChange={(v) => setEditDialogOpen(v)}
+        onSuccess={fetchPatients}
+        patient={currentPatient}
+      />
     </div>
   );
 }
