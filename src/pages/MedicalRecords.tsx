@@ -77,18 +77,16 @@ export default function MedicalRecords() {
   const handleScanComplete = async (reportData: ReportData) => {
     let patientName = patientMap[reportData.patientId] || "Unknown Patient";
 
-    // Insert new record to the database
-    const { data, error } = await supabase.from("medical_records").insert([
-      {
-        patient_id: reportData.patientId,
-        record_type: reportData.reportType,
-        date: reportData.date,
-        doctor: "AI Analysis System",
-        department: "Diagnostics",
-        status: "Completed",
-        scanned_report: reportData,
-      }
-    ]).select().single();
+    // Insert new record to the database - fixing the type issue here
+    const { data, error } = await supabase.from("medical_records").insert({
+      patient_id: reportData.patientId,
+      record_type: reportData.reportType,
+      date: reportData.date,
+      doctor: "AI Analysis System",
+      department: "Diagnostics",
+      status: "Completed",
+      scanned_report: reportData as any // Using type assertion for now, will be properly typed in database
+    }).select().single();
 
     if (error) {
       toast({
@@ -99,21 +97,20 @@ export default function MedicalRecords() {
       return;
     }
 
-    // Add new record in UI, refetch for data consistency
-    setRecords(prev => [
-      {
-        id: data.id,
-        patientId: data.patient_id,
-        patientName,
-        recordType: data.record_type,
-        date: data.date,
-        doctor: data.doctor || "",
-        department: data.department || "",
-        status: data.status || "",
-        scannedReport: data.scanned_report || undefined,
-      },
-      ...prev,
-    ]);
+    // Add new record in UI, fix the type issue
+    const newRecord: MedicalRecord = {
+      id: data.id,
+      patientId: data.patient_id,
+      patientName,
+      recordType: data.record_type,
+      date: data.date,
+      doctor: data.doctor || "",
+      department: data.department || "",
+      status: data.status || "",
+      scannedReport: data.scanned_report as unknown as ReportData || undefined,
+    };
+    
+    setRecords(prev => [newRecord, ...prev]);
 
     toast({
       title: "Report Added",
@@ -124,7 +121,7 @@ export default function MedicalRecords() {
   // View scanned report dialog open handler
   const handleViewReport = (record: MedicalRecord) => {
     if (record.scannedReport) {
-      setSelectedReport(record.scannedReport);
+      setSelectedReport(record.scannedReport as ReportData);
       setViewReportDialogOpen(true);
     } else {
       toast({
