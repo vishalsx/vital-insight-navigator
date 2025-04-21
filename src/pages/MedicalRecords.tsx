@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -5,6 +6,7 @@ import RecordsSearchFilters from "@/components/medical-records/RecordsSearchFilt
 import RecordsTable from "@/components/medical-records/RecordsTable";
 import ScanReportDialog, { ReportData } from "@/components/medical-records/ScanReportDialog";
 import ViewReportDialog from "@/components/medical-records/ViewReportDialog";
+import CreateEditRecordDialog from "@/components/medical-records/CreateEditRecordDialog";
 import { MedicalRecord } from "@/types/medicalRecords";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPatientMap } from "@/supabasePatients";
@@ -12,20 +14,19 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
-// Types for patient mapping
 type PatientMap = { [patientId: string]: string };
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
   const [patientMap, setPatientMap] = useState<PatientMap>({});
   const { toast } = useToast();
   const [recordToEdit, setRecordToEdit] = useState<MedicalRecord | null>(null);
 
-  // Fetch patients for ID-name mapping
   useEffect(() => {
     const getPatientMap = async () => {
       const map = await fetchPatientMap();
@@ -35,33 +36,31 @@ export default function MedicalRecords() {
   }, []);
 
   // Fetch medical records from the backend
+  const fetchMedicalRecords = async () => {
+    const { data, error } = await supabase
+      .from("medical_records")
+      .select("*")
+      .order("date", { ascending: false });
+    if (error) {
+      toast({ title: "Error fetching records", description: error.message, variant: "destructive" });
+      setRecords([]);
+      return;
+    }
+    const mappedRecords: MedicalRecord[] = (data || []).map((rec: any) => ({
+      id: rec.id,
+      patientId: rec.patient_id,
+      patientName: patientMap[rec.patient_id] || "Unknown Patient",
+      recordType: rec.record_type,
+      date: rec.date,
+      doctor: rec.doctor || "",
+      department: rec.department || "",
+      status: rec.status || "",
+      scannedReport: rec.scanned_report || undefined,
+    }));
+    setRecords(mappedRecords);
+  };
+
   useEffect(() => {
-    const fetchMedicalRecords = async () => {
-      const { data, error } = await supabase
-        .from("medical_records")
-        .select("*")
-        .order("date", { ascending: false });
-      if (error) {
-        toast({ title: "Error fetching records", description: error.message, variant: "destructive" });
-        setRecords([]);
-        return;
-      }
-
-      // Map data to MedicalRecord type with patient name lookup
-      const mappedRecords: MedicalRecord[] = (data || []).map((rec: any) => ({
-        id: rec.id,
-        patientId: rec.patient_id,
-        patientName: patientMap[rec.patient_id] || "Unknown Patient",
-        recordType: rec.record_type,
-        date: rec.date,
-        doctor: rec.doctor || "",
-        department: rec.department || "",
-        status: rec.status || "",
-        scannedReport: rec.scanned_report || undefined,
-      }));
-      setRecords(mappedRecords);
-    };
-
     if (Object.keys(patientMap).length > 0) {
       fetchMedicalRecords();
     }
@@ -78,19 +77,24 @@ export default function MedicalRecords() {
 
   // Add new scanned record to the backend
   const handleScanComplete = async (reportData: ReportData) => {
-    let patientName = patientMap[reportData.patientId] || "Unknown Patient";
-
-    // Insert new record to the database - fixing the type issue here
+    let patientId = reportData.patientId;
+    if (!patientMap[patientId]) {
+      toast({
+        title: "Unknown Patient",
+        description: "No such patient exists. Please select a valid patient when scanning.",
+        variant: "destructive",
+      });
+      return;
+    }
     const { data, error } = await supabase.from("medical_records").insert({
-      patient_id: reportData.patientId,
+      patient_id: patientId,
       record_type: reportData.reportType,
       date: reportData.date,
       doctor: "AI Analysis System",
       department: "Diagnostics",
       status: "Completed",
-      scanned_report: reportData as any // Using type assertion for now, will be properly typed in database
+      scanned_report: reportData as any
     }).select().single();
-
     if (error) {
       toast({
         title: "Failed to add report",
@@ -99,12 +103,10 @@ export default function MedicalRecords() {
       });
       return;
     }
-
-    // Add new record in UI, fix the type issue
     const newRecord: MedicalRecord = {
       id: data.id,
       patientId: data.patient_id,
-      patientName,
+      patientName: patientMap[data.patient_id] || "Unknown Patient",
       recordType: data.record_type,
       date: data.date,
       doctor: data.doctor || "",
@@ -112,18 +114,68 @@ export default function MedicalRecords() {
       status: data.status || "",
       scannedReport: data.scanned_report as unknown as ReportData || undefined,
     };
-    
     setRecords(prev => [newRecord, ...prev]);
-
     toast({
       title: "Report Added",
       description: `${reportData.reportType} report has been added to medical records.`,
     });
   };
 
+  // Add new generic record
+  const handleCreateRecord = async (formData: {
+    patientId: string;
+    recordType: string;
+    date: string;
+    doctor: string;
+    department: string;
+    status: string;
+    notes?: string;
+  }) => {
+    if (!patientMap[formData.patientId]) {
+      toast({
+        title: "Unknown Patient",
+        description: "No such patient exists. Please select a valid patient.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const { data, error } = await supabase.from("medical_records").insert({
+      patient_id: formData.patientId,
+      record_type: formData.recordType,
+      date: formData.date,
+      doctor: formData.doctor,
+      department: formData.department || "",
+      status: formData.status || "",
+      scanned_report: formData.notes ? { content: formData.notes } : null,
+    }).select().single();
+    if (error) {
+      toast({
+        title: "Failed to add record",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    const newRecord: MedicalRecord = {
+      id: data.id,
+      patientId: data.patient_id,
+      patientName: patientMap[data.patient_id] || "Unknown Patient",
+      recordType: data.record_type,
+      date: data.date,
+      doctor: data.doctor || "",
+      department: data.department || "",
+      status: data.status || "",
+      scannedReport: data.scanned_report || undefined,
+    };
+    setRecords(prev => [newRecord, ...prev]);
+    toast({
+      title: "Record Added",
+      description: `${formData.recordType} record has been added to medical records.`,
+    });
+  };
+
   // Edit a record
   const handleEditRecord = async (record: MedicalRecord) => {
-    // TODO: Implement edit dialog UI.
     toast({ title: "Edit not implemented yet", description: "Feature coming soon!" });
   };
 
@@ -153,9 +205,28 @@ export default function MedicalRecords() {
     }
   };
 
+  // New: Patient selection required for scanning
+  const handleScanReport = () => {
+    if (Object.keys(patientMap).length === 0) {
+      toast({
+        title: "No patients available",
+        description: "Please create a patient first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setScanDialogOpen(true);
+  };
+
+  // New: Patient selection for scan report (let users select patient before scanning)
+  // For simplicity, assume ScanReportDialog expects correct patientId coming from the route
+
   return (
     <div className="space-y-6">
-      <RecordsHeader onScanReport={() => setScanDialogOpen(true)} />
+      <RecordsHeader
+        onScanReport={handleScanReport}
+        onCreateRecord={() => setCreateDialogOpen(true)}
+      />
       <RecordsSearchFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
       <div className="rounded-md border bg-card overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -193,11 +264,18 @@ export default function MedicalRecords() {
           </tbody>
         </table>
       </div>
-      {/* Original Table and other dialogs */}
+
       <ScanReportDialog
         open={scanDialogOpen}
         onOpenChange={setScanDialogOpen}
         onScanComplete={handleScanComplete}
+      />
+
+      <CreateEditRecordDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSubmit={handleCreateRecord}
+        patientMap={patientMap}
       />
 
       <ViewReportDialog
@@ -208,3 +286,4 @@ export default function MedicalRecords() {
     </div>
   );
 }
+// End of MedicalRecords.tsx
