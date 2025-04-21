@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -19,7 +18,6 @@ type PatientMap = { [patientId: string]: string };
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
   const [records, setRecords] = useState<MedicalRecord[]>([]);
-  const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
@@ -35,7 +33,6 @@ export default function MedicalRecords() {
     getPatientMap();
   }, []);
 
-  // Fetch medical records from the backend
   const fetchMedicalRecords = async () => {
     const { data, error } = await supabase
       .from("medical_records")
@@ -66,7 +63,6 @@ export default function MedicalRecords() {
     }
   }, [patientMap, toast]);
 
-  // Search
   const filteredRecords = records.filter(
     (record) =>
       record.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,59 +71,6 @@ export default function MedicalRecords() {
       record.recordType.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Add new scanned record to the backend
-  const handleScanComplete = async (reportData: ReportData) => {
-    let patientId = reportData.patientId;
-    if (!patientMap[patientId]) {
-      toast({
-        title: "Unknown Patient",
-        description: "No such patient exists. Please select a valid patient when scanning.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const { data, error } = await supabase.from("medical_records").insert({
-      patient_id: patientId,
-      record_type: reportData.reportType,
-      date: reportData.date,
-      doctor: "AI Analysis System",
-      department: "Diagnostics",
-      status: "Completed",
-      scanned_report: reportData as any
-    }).select().single();
-    if (error) {
-      toast({
-        title: "Failed to add report",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Fix the type issue by properly casting the scanned_report
-    const scannedReport = data.scanned_report 
-      ? (data.scanned_report as unknown as ReportData) 
-      : undefined;
-      
-    const newRecord: MedicalRecord = {
-      id: data.id,
-      patientId: data.patient_id,
-      patientName: patientMap[data.patient_id] || "Unknown Patient",
-      recordType: data.record_type,
-      date: data.date,
-      doctor: data.doctor || "",
-      department: data.department || "",
-      status: data.status || "",
-      scannedReport: scannedReport,
-    };
-    setRecords(prev => [newRecord, ...prev]);
-    toast({
-      title: "Report Added",
-      description: `${reportData.reportType} report has been added to medical records.`,
-    });
-  };
-
-  // Add new generic record
   const handleCreateRecord = async (formData: {
     patientId: string;
     recordType: string;
@@ -136,6 +79,7 @@ export default function MedicalRecords() {
     department: string;
     status: string;
     notes?: string;
+    scannedReport?: ReportData;
   }) => {
     if (!patientMap[formData.patientId]) {
       toast({
@@ -145,8 +89,6 @@ export default function MedicalRecords() {
       });
       return;
     }
-    
-    // Create the payload with proper type for scanned_report
     const payload: any = {
       patient_id: formData.patientId,
       record_type: formData.recordType,
@@ -155,9 +97,9 @@ export default function MedicalRecords() {
       department: formData.department || "",
       status: formData.status || "",
     };
-    
-    // Only add scanned_report if notes exist
-    if (formData.notes) {
+    if (formData.scannedReport) {
+      payload.scanned_report = formData.scannedReport;
+    } else if (formData.notes) {
       payload.scanned_report = { 
         id: `REC-${Date.now().toString().slice(-6)}`,
         patientId: formData.patientId,
@@ -166,12 +108,10 @@ export default function MedicalRecords() {
         content: formData.notes 
       };
     }
-    
     const { data, error } = await supabase.from("medical_records")
       .insert(payload)
       .select()
       .single();
-      
     if (error) {
       toast({
         title: "Failed to add record",
@@ -180,12 +120,9 @@ export default function MedicalRecords() {
       });
       return;
     }
-    
-    // Fix the type issue by properly casting the scanned_report
     const scannedReport = data.scanned_report 
       ? (data.scanned_report as unknown as ReportData) 
       : undefined;
-      
     const newRecord: MedicalRecord = {
       id: data.id,
       patientId: data.patient_id,
@@ -204,12 +141,10 @@ export default function MedicalRecords() {
     });
   };
 
-  // Edit a record
   const handleEditRecord = async (record: MedicalRecord) => {
     toast({ title: "Edit not implemented yet", description: "Feature coming soon!" });
   };
 
-  // Delete a record
   const handleDeleteRecord = async (record: MedicalRecord) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     const { error } = await supabase.from("medical_records").delete().eq("id", record.id);
@@ -221,7 +156,6 @@ export default function MedicalRecords() {
     toast({ title: "Record deleted" });
   };
 
-  // View scanned report dialog open handler
   const handleViewReport = (record: MedicalRecord) => {
     if (record.scannedReport) {
       setSelectedReport(record.scannedReport as ReportData);
@@ -235,26 +169,10 @@ export default function MedicalRecords() {
     }
   };
 
-  // New: Patient selection required for scanning
-  const handleScanReport = () => {
-    if (Object.keys(patientMap).length === 0) {
-      toast({
-        title: "No patients available",
-        description: "Please create a patient first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setScanDialogOpen(true);
-  };
-
-  // New: Patient selection for scan report (let users select patient before scanning)
-  // For simplicity, assume ScanReportDialog expects correct patientId coming from the route
-
   return (
     <div className="space-y-6">
       <RecordsHeader
-        onScanReport={handleScanReport}
+        onScanReport={undefined}
         onCreateRecord={() => setCreateDialogOpen(true)}
       />
       <RecordsSearchFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
@@ -294,12 +212,6 @@ export default function MedicalRecords() {
           </tbody>
         </table>
       </div>
-
-      <ScanReportDialog
-        open={scanDialogOpen}
-        onOpenChange={setScanDialogOpen}
-        onScanComplete={handleScanComplete}
-      />
 
       <CreateEditRecordDialog
         open={createDialogOpen}
