@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import PatientEditDialog from "@/components/patients/PatientEditDialog";
 import { useToast } from "@/hooks/use-toast";
+import AddMedicalHistoryRecordDialog from "@/components/patients/AddMedicalHistoryRecordDialog";
 
 const patient = {
   id: "P-1001",
@@ -155,6 +156,8 @@ export default function PatientDetails() {
   const [activeTab, setActiveTab] = useState("overview");
   const [patient, setPatient] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [addRecordOpen, setAddRecordOpen] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const { toast } = useToast();
 
   const fetchPatient = async () => {
@@ -168,8 +171,27 @@ export default function PatientDetails() {
     setPatient(data);
   };
 
+  const fetchHistory = async () => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from("medical_records")
+      .select("*")
+      .eq("patient_id", id)
+      .order("date", { ascending: false });
+    if (!error && Array.isArray(data)) {
+      setHistoryRecords(data.map((rec: any) => ({
+        date: rec.date,
+        type: rec.record_type,
+        diagnosis: rec.scanned_report?.diagnosis || "",
+        notes: rec.scanned_report?.content || "",
+        doctor: rec.doctor || "",
+      })));
+    }
+  };
+
   useEffect(() => {
     fetchPatient();
+    fetchHistory();
     // eslint-disable-next-line
   }, [id]);
 
@@ -379,13 +401,13 @@ export default function PatientDetails() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-medium">Medical Record History</h3>
-                    <Button>
+                    <Button onClick={() => setAddRecordOpen(true)}>
                       <FileText className="mr-2 h-4 w-4" /> Add Record
                     </Button>
                   </div>
                   
                   <div className="space-y-6">
-                    {medicalHistory.map((record, index) => (
+                    {(historyRecords.length > 0 ? historyRecords : medicalHistory).map((record, index) => (
                       <div key={index} className="border-b pb-6 last:border-0 last:pb-0">
                         <div className="flex flex-wrap items-center gap-3 mb-2">
                           <Badge variant={record.type === "Emergency" ? "destructive" : "outline"}>
@@ -409,6 +431,12 @@ export default function PatientDetails() {
                   </div>
                 </CardContent>
               </Card>
+              <AddMedicalHistoryRecordDialog
+                open={addRecordOpen}
+                onOpenChange={setAddRecordOpen}
+                onRecordAdded={fetchHistory}
+                patientId={id}
+              />
             </TabsContent>
             
             <TabsContent value="medications">
