@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddMedicalHistoryRecordDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ const AddMedicalHistoryRecordDialog = ({
   const [notes, setNotes] = useState("");
   const [doctor, setDoctor] = useState("");
   const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,23 +65,19 @@ const AddMedicalHistoryRecordDialog = ({
     setLoading(false);
 
     if (error) {
-      if (window && window.toast) {
-        window.toast({
-          title: "Failed to add record",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        alert("Failed to add record: " + error.message);
-      }
+      toast({
+        title: "Failed to add record",
+        description: error.message,
+        variant: "destructive",
+      });
       return;
     }
-    if (window && window.toast) {
-      window.toast({
-        title: "Medical record added",
-        description: "The new medical record has been added successfully.",
-      });
-    }
+    
+    toast({
+      title: "Medical record added",
+      description: "The new medical record has been added successfully.",
+    });
+    
     onOpenChange(false);
     onRecordAdded();
     // Reset form
