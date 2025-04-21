@@ -55,7 +55,7 @@ export default function MedicalRecords() {
       doctor: rec.doctor || "",
       department: rec.department || "",
       status: rec.status || "",
-      scannedReport: rec.scanned_report || undefined,
+      scannedReport: rec.scanned_report ? rec.scanned_report as ReportData : undefined,
     }));
     setRecords(mappedRecords);
   };
@@ -112,7 +112,7 @@ export default function MedicalRecords() {
       doctor: data.doctor || "",
       department: data.department || "",
       status: data.status || "",
-      scannedReport: data.scanned_report as unknown as ReportData || undefined,
+      scannedReport: data.scanned_report as unknown as ReportData,
     };
     setRecords(prev => [newRecord, ...prev]);
     toast({
