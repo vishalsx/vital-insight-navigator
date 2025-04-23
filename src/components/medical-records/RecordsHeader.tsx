@@ -17,8 +17,7 @@ const RecordsHeader = ({ onCreateRecord }: RecordsHeaderProps) => {
           View and manage medical records
         </p>
       </div>
-      <div className="flex gap-2">
-        {/* Remove scan report button */}
+      <div>
         <Button onClick={onCreateRecord}>
           <Plus className="mr-2 h-4 w-4" /> Create New Record
         </Button>

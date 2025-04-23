@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Camera, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ReportData, ReportAnalysis } from "./ScanReportDialog";
 
 export interface CreateEditRecordProps {
@@ -171,167 +172,173 @@ const CreateEditRecordDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Create New Medical Record</DialogTitle>
           <DialogDescription>
             Fill out medical record details. Optionally, scan & analyze a medical report for this entry.
           </DialogDescription>
         </DialogHeader>
-        <Tabs value={activeTab} onValueChange={t => setActiveTab(t as "form" | "scan")} className="mb-4">
-          <TabsList className="grid grid-cols-2 w-1/2 mx-auto">
-            <TabsTrigger value="form">Record Form</TabsTrigger>
-            <TabsTrigger value="scan">Scan Report</TabsTrigger>
-          </TabsList>
-          <TabsContent value="form">
-            <form className="grid gap-4 mt-4" onSubmit={handleSubmit}>
-              <div>
-                <Label htmlFor="patient">Patient</Label>
-                <select
-                  id="patient"
-                  className="w-full border rounded px-2 py-1"
-                  value={patientId}
-                  onChange={e => setPatientId(e.target.value)}
-                  required
-                >
-                  <option value="">Select patient...</option>
-                  {Object.entries(patientMap).map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name} ({id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="recordType">Record Type</Label>
-                <Input id="recordType" value={recordType} onChange={e => setRecordType(e.target.value)} required />
-              </div>
-              <div>
-                <Label htmlFor="date">Date</Label>
-                <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
-              </div>
-              <div>
-                <Label htmlFor="doctor">Doctor</Label>
-                <Input id="doctor" value={doctor} onChange={e => setDoctor(e.target.value)} required />
-              </div>
-              <div>
-                <Label htmlFor="department">Department</Label>
-                <Input id="department" value={department} onChange={e => setDepartment(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Input id="status" value={status} onChange={e => setStatus(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} />
-              </div>
-              {/* Display scan analysis summary if scanResult exists */}
-              {scanResult && (
-                <div className="rounded-lg border bg-accent/30 p-3 text-sm">
-                  <p className="font-medium mb-2">Attached Scanned Report: <span className="text-blue-900">{scanResult.reportType}</span></p>
-                  <p>{scanResult.analysis ? <><b>AI Diagnosis:</b> {scanResult.analysis.diagnosis}</> : "No analysis"}</p>
+        
+        <ScrollArea className="flex-1 pr-4" style={{ maxHeight: "calc(90vh - 180px)" }}>
+          <Tabs value={activeTab} onValueChange={t => setActiveTab(t as "form" | "scan")} className="mb-4">
+            <TabsList className="grid grid-cols-2 w-1/2 mx-auto">
+              <TabsTrigger value="form">Record Form</TabsTrigger>
+              <TabsTrigger value="scan">Scan Report</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="form">
+              <form className="grid gap-4 mt-4" id="recordForm">
+                <div>
+                  <Label htmlFor="patient">Patient</Label>
+                  <select
+                    id="patient"
+                    className="w-full border rounded px-2 py-1"
+                    value={patientId}
+                    onChange={e => setPatientId(e.target.value)}
+                    required
+                  >
+                    <option value="">Select patient...</option>
+                    {Object.entries(patientMap).map(([id, name]) => (
+                      <option key={id} value={id}>
+                        {name} ({id})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  Create Record
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-          <TabsContent value="scan">
-            <div className="grid gap-4 mt-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="scanReportType" className="text-right">
-                  Report Type
-                </Label>
-                <Input
-                  id="scanReportType"
-                  placeholder="Lab Result, X-Ray, MRI, etc."
-                  className="col-span-3"
-                  value={reportTypeScan}
-                  onChange={(e) => setReportTypeScan(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="reportFile" className="text-right">Report File</Label>
-                <div className="col-span-3">
+                <div>
+                  <Label htmlFor="recordType">Record Type</Label>
+                  <Input id="recordType" value={recordType} onChange={e => setRecordType(e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor="date">Date</Label>
+                  <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor="doctor">Doctor</Label>
+                  <Input id="doctor" value={doctor} onChange={e => setDoctor(e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor="department">Department</Label>
+                  <Input id="department" value={department} onChange={e => setDepartment(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Input id="status" value={status} onChange={e => setStatus(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} />
+                </div>
+                {/* Display scan analysis summary if scanResult exists */}
+                {scanResult && (
+                  <div className="rounded-lg border bg-accent/30 p-3 text-sm">
+                    <p className="font-medium mb-2">Attached Scanned Report: <span className="text-blue-900">{scanResult.reportType}</span></p>
+                    <p>{scanResult.analysis ? <><b>AI Diagnosis:</b> {scanResult.analysis.diagnosis}</> : "No analysis"}</p>
+                  </div>
+                )}
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="scan">
+              <div className="grid gap-4 mt-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="scanReportType" className="text-right">
+                    Report Type
+                  </Label>
                   <Input
-                    id="reportFile"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
+                    id="scanReportType"
+                    placeholder="Lab Result, X-Ray, MRI, etc."
+                    className="col-span-3"
+                    value={reportTypeScan}
+                    onChange={(e) => setReportTypeScan(e.target.value)}
                   />
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="reportFile" className="text-right">Report File</Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="reportFile"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="scanNotes" className="text-right">Notes</Label>
+                  <Textarea
+                    id="scanNotes"
+                    placeholder="Add any notes about this report"
+                    className="col-span-3"
+                    value={scanNotes}
+                    onChange={e => setScanNotes(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+                {previewUrl && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="text-sm font-medium mb-2">Image Preview</div>
+                      <div className="max-h-[200px] overflow-auto">
+                        <img
+                          src={previewUrl}
+                          alt="Report Preview"
+                          className="max-w-full rounded-md border"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                <div className="flex justify-end gap-2 mt-2">
+                  <Button type="button" variant="outline" onClick={captureImage}>
+                    <Camera className="h-4 w-4 mr-2" /> Activate Camera
+                  </Button>
+                  <Button type="button" onClick={analyzeReport} disabled={isScanLoading}>
+                    {isScanLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Analyze Report
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="scanNotes" className="text-right">Notes</Label>
-                <Textarea
-                  id="scanNotes"
-                  placeholder="Add any notes about this report"
-                  className="col-span-3"
-                  value={scanNotes}
-                  onChange={e => setScanNotes(e.target.value)}
-                  rows={3}
-                />
-              </div>
-              {previewUrl && (
-                <Card>
+              {scanResult && (
+                <Card className="mt-4 border-green-400">
                   <CardContent className="p-4">
-                    <div className="text-sm font-medium mb-2">Image Preview</div>
-                    <div className="max-h-[240px] overflow-auto">
-                      <img
-                        src={previewUrl}
-                        alt="Report Preview"
-                        className="max-w-full rounded-md border"
-                      />
+                    <div className="font-bold mb-2">AI Analysis Result:</div>
+                    <div className="text-sm text-green-900 mb-1">Diagnosis: {scanResult.analysis?.diagnosis}</div>
+                    <div className="text-muted-foreground text-xs mb-1">Summary: {scanResult.analysis?.summary}</div>
+                    <div>
+                      <strong>Recommendations:</strong>
+                      <ul className="list-disc ml-6">
+                        {scanResult.analysis?.recommendations.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
                     </div>
+                    <div className="text-xs text-right mt-2 opacity-70">Confidence: {(scanResult.analysis?.confidence ?? 0 * 100).toFixed(0)}%</div>
                   </CardContent>
                 </Card>
               )}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={captureImage}>
-                  <Camera className="h-4 w-4 mr-2" /> Activate Camera
-                </Button>
-                <Button type="button" onClick={analyzeReport} disabled={isScanLoading}>
-                  {isScanLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Analyze Report
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </div>
-            {scanResult && (
-              <Card className="mt-4 border-green-400">
-                <CardContent className="p-4">
-                  <div className="font-bold mb-2">AI Analysis Result:</div>
-                  <div className="text-sm text-green-900 mb-1">Diagnosis: {scanResult.analysis?.diagnosis}</div>
-                  <div className="text-muted-foreground text-xs mb-1">Summary: {scanResult.analysis?.summary}</div>
-                  <div>
-                    <strong>Recommendations:</strong>
-                    <ul className="list-disc ml-6">
-                      {scanResult.analysis?.recommendations.map((rec, idx) => (
-                        <li key={idx}>{rec}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="text-xs text-right mt-2 opacity-70">Confidence: {(scanResult.analysis?.confidence ?? 0 * 100).toFixed(0)}%</div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </ScrollArea>
+        
+        <DialogFooter className="pt-2 border-t">
+          <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSubmit}>
+            Create Record
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
