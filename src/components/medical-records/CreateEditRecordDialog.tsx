@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Camera, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -36,13 +36,13 @@ const CreateEditRecordDialog = ({
 }: CreateEditRecordProps) => {
   const [activeTab, setActiveTab] = useState<"form" | "scan">("form");
   const [patientId, setPatientId] = useState("");
-  const [recordType, setRecordType] = useState("");
   const [date, setDate] = useState("");
+  // Form state
+  const [recordType, setRecordType] = useState("");
   const [doctor, setDoctor] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [notes, setNotes] = useState("");
-
   // Scan report state
   const [reportTypeScan, setReportTypeScan] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -58,8 +58,8 @@ const CreateEditRecordDialog = ({
   React.useEffect(() => {
     if (!open) {
       setPatientId("");
-      setRecordType("");
       setDate("");
+      setRecordType("");
       setDoctor("");
       setDepartment("");
       setStatus("");
@@ -88,13 +88,13 @@ const CreateEditRecordDialog = ({
     }
   };
 
-  // Mock camera capture -- no actual image capture, just a toast for demo
+  // Simulate camera (optional)
   const captureImage = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ video: true });
       toast({
         title: "Camera activated",
-        description: "Use the upload input or drag-and-drop to choose a file.",
+        description: "Use upload or drag-and-drop to choose a file.",
       });
     } catch (error) {
       toast({
@@ -105,7 +105,7 @@ const CreateEditRecordDialog = ({
     }
   };
 
-  // Scan/Analyze report action
+  // AI analysis mock
   const analyzeReport = async () => {
     if (!reportTypeScan) {
       toast({
@@ -118,14 +118,12 @@ const CreateEditRecordDialog = ({
     if (!imageFile && !previewUrl) {
       toast({
         title: "No report file",
-        description: "Please upload or scan an image for analysis.",
+        description: "Please upload or scan an image.",
         variant: "destructive",
       });
       return;
     }
     setIsScanLoading(true);
-
-    // Simulate AI Analysis (mock, replace as needed)
     await new Promise(res => setTimeout(res, 1800));
     const analysis: ReportAnalysis = {
       summary: "Patient shows elevated blood glucose and mild hypertension.",
@@ -142,7 +140,7 @@ const CreateEditRecordDialog = ({
       id: `REC-${Date.now().toString().slice(-6)}`,
       patientId: patientId || "unknown",
       reportType: reportTypeScan,
-      date: date || new Date().toISOString().split('T')[0],
+      date: date || new Date().toISOString().split("T")[0],
       content: scanNotes,
       imageUrl: previewUrl || undefined,
       analysis,
@@ -150,41 +148,51 @@ const CreateEditRecordDialog = ({
     setScanResult(newReport);
     toast({
       title: "Report analyzed",
-      description: "The report has been analyzed and will be included in the record.",
+      description: "The report has been analyzed and added.",
     });
     setIsScanLoading(false);
   };
 
-  // Submit handler
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Unified submit
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId || !recordType || !date || !doctor) {
+    if (!patientId || !date ||
+      (activeTab === "form" && (!recordType || !doctor))
+    ) {
       toast({
         title: "Missing required fields",
-        description: "Fill in all required fields (patient, type, date, doctor).",
+        description: "Patient and Date are required on all tabs. Record Type and Doctor are required in Record Form.",
         variant: "destructive",
       });
       return;
     }
     setSubmitting(true);
-
     try {
-      // Prepare data for submission
-      const formData = {
-        patientId,
-        recordType,
-        date,
-        doctor,
-        department,
-        status,
-        notes,
-        scannedReport: scanResult,
-      };
-
-      // Submit the form data
-      await onSubmit(formData);
-      
-      // Close the dialog
+      if (activeTab === "form") {
+        await onSubmit({
+          patientId, recordType, date, doctor, department, status, notes,
+        });
+      } else if (activeTab === "scan") {
+        if (!scanResult) {
+          toast({
+            title: "No scanned report analyzed",
+            description: "Please complete analysis before creating record.",
+            variant: "destructive",
+          });
+          setSubmitting(false);
+          return;
+        }
+        await onSubmit({
+          patientId,
+          recordType: scanResult.reportType,
+          date,
+          doctor: doctor || "N/A",
+          department,
+          status,
+          notes: scanNotes,
+          scannedReport: scanResult,
+        });
+      }
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -197,23 +205,56 @@ const CreateEditRecordDialog = ({
     }
   };
 
+  // Common: Patient and Date selectors (always required)
+  const patientAndDateSelectors = (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label htmlFor="patient">Patient</Label>
+        <select
+          id="patient"
+          className="w-full border rounded px-2 py-1"
+          value={patientId}
+          onChange={e => setPatientId(e.target.value)}
+          required
+        >
+          <option value="">Select patient...</option>
+          {Object.entries(patientMap).map(([id, name]) => (
+            <option key={id} value={id}>
+              {name} ({id})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="date">Date</Label>
+        <Input
+          id="date"
+          type="date"
+          value={date}
+          onChange={e => setDate(e.target.value)}
+          required
+        />
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 flex flex-col h-[80vh]">
-        {/* Header section */}
         <DialogHeader className="p-6 pb-2">
           <DialogTitle>Create New Medical Record</DialogTitle>
           <DialogDescription>
-            Fill out the medical record details or scan a report to create a new record.
+            Use tabs below to either fill out the record form or scan a report.
+            Patient and Date are required for both options.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tabs */}
         <div className="px-6">
-          <Tabs 
-            value={activeTab} 
-            onValueChange={t => setActiveTab(t as "form" | "scan")} 
-            className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={t => setActiveTab(t as "form" | "scan")}
+            className="w-full"
+          >
             <TabsList className="grid grid-cols-2 w-72 mx-auto mb-4">
               <TabsTrigger value="form">Record Form</TabsTrigger>
               <TabsTrigger value="scan">Scan Report</TabsTrigger>
@@ -221,36 +262,16 @@ const CreateEditRecordDialog = ({
           </Tabs>
         </div>
 
-        {/* Scrollable content area */}
         <ScrollArea className="flex-1 px-6 overflow-auto">
           <div className="pb-4">
-            {/* Form Tab Content */}
+            {/* Patient & Date selection always on top */}
+            {patientAndDateSelectors}
+            {/* Record Form Tab Content */}
             {activeTab === "form" && (
-              <form id="recordForm" onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="patient">Patient</Label>
-                  <select
-                    id="patient"
-                    className="w-full border rounded px-2 py-1"
-                    value={patientId}
-                    onChange={e => setPatientId(e.target.value)}
-                    required
-                  >
-                    <option value="">Select patient...</option>
-                    {Object.entries(patientMap).map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name} ({id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <form id="recordForm" onSubmit={handleFormSubmit} className="space-y-4 mt-4">
                 <div>
                   <Label htmlFor="recordType">Record Type</Label>
                   <Input id="recordType" value={recordType} onChange={e => setRecordType(e.target.value)} required />
-                </div>
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
                 </div>
                 <div>
                   <Label htmlFor="doctor">Doctor</Label>
@@ -268,48 +289,35 @@ const CreateEditRecordDialog = ({
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
-                {/* Display scan result if available */}
-                {scanResult && (
-                  <div className="rounded-lg border bg-accent/30 p-3 text-sm mt-2">
-                    <p className="font-medium mb-2">Attached Scanned Report: <span className="text-blue-900">{scanResult.reportType}</span></p>
-                    <p>{scanResult.analysis ? <><b>AI Diagnosis:</b> {scanResult.analysis.diagnosis}</> : "No analysis"}</p>
-                  </div>
-                )}
               </form>
             )}
 
-            {/* Scan Tab Content */}
+            {/* Scan Report Tab Content */}
             {activeTab === "scan" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="scanReportType" className="text-right">
-                    Report Type
-                  </Label>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <Label htmlFor="scanReportType">Report Type</Label>
                   <Input
                     id="scanReportType"
                     placeholder="Lab Result, X-Ray, MRI, etc."
-                    className="col-span-3"
                     value={reportTypeScan}
                     onChange={(e) => setReportTypeScan(e.target.value)}
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="reportFile" className="text-right">Report File</Label>
-                  <div className="col-span-3">
-                    <Input
-                      id="reportFile"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="reportFile">Report File</Label>
+                  <Input
+                    id="reportFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="scanNotes" className="text-right">Notes</Label>
+                <div>
+                  <Label htmlFor="scanNotes">Notes</Label>
                   <Textarea
                     id="scanNotes"
                     placeholder="Add any notes about this report"
-                    className="col-span-3"
                     value={scanNotes}
                     onChange={e => setScanNotes(e.target.value)}
                     rows={3}
@@ -333,7 +341,7 @@ const CreateEditRecordDialog = ({
                   <Button type="button" variant="outline" onClick={captureImage}>
                     <Camera className="h-4 w-4 mr-2" /> Activate Camera
                   </Button>
-                  <Button type="button" onClick={analyzeReport} disabled={isScanLoading}>
+                  <Button type="button" onClick={analyzeReport} disabled={isScanLoading || !patientId || !date}>
                     {isScanLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -347,7 +355,6 @@ const CreateEditRecordDialog = ({
                     )}
                   </Button>
                 </div>
-
                 {/* Analysis Result Card */}
                 {scanResult && (
                   <Card className="mt-4 border-green-400">
@@ -377,10 +384,11 @@ const CreateEditRecordDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button 
+          <Button
             type="submit"
-            form="recordForm" 
+            form={activeTab === "form" ? "recordForm" : undefined}
             disabled={submitting}
+            onClick={activeTab === "scan" ? handleFormSubmit : undefined}
           >
             {submitting ? "Creating..." : "Create Record"}
           </Button>
