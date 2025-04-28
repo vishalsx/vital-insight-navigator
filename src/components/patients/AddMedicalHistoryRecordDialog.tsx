@@ -61,23 +61,46 @@ const AddMedicalHistoryRecordDialog = ({
 
     try {
       const { supabase } = await import("@/integrations/supabase/client");
-      const payload = {
+      
+      // Create the base payload
+      const basePayload: any = {
         patient_id: patientId,
         record_type: activeTab === "form" ? recordType : reportTypeScan,
         date,
         doctor: activeTab === "form" ? doctor : "N/A",
         department,
         status,
-        scanned_report: activeTab === "scan" ? scanResult : {
+      };
+      
+      // Handle the scanned_report field, ensuring it's JSON-compatible
+      if (activeTab === "scan" && scanResult) {
+        // Convert ReportData to a plain object (JSON-compatible)
+        basePayload.scanned_report = {
+          id: scanResult.id,
+          patientId: scanResult.patientId,
+          reportType: scanResult.reportType,
+          date: scanResult.date,
+          content: scanResult.content,
+          imageUrl: scanResult.imageUrl || "",
+          analysis: scanResult.analysis ? {
+            summary: scanResult.analysis.summary,
+            diagnosis: scanResult.analysis.diagnosis,
+            recommendations: scanResult.analysis.recommendations,
+            confidence: scanResult.analysis.confidence
+          } : undefined
+        };
+      } else {
+        // Create a simple report object for form submissions
+        basePayload.scanned_report = {
           id: `REC-${Date.now().toString().slice(-6)}`,
           patientId,
           reportType: recordType,
           date,
-          content: notes,
-        },
-      };
+          content: notes
+        };
+      }
 
-      const { error } = await supabase.from("medical_records").insert(payload);
+      const { error } = await supabase.from("medical_records").insert(basePayload);
 
       if (error) {
         toast({
