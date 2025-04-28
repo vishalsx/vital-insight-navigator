@@ -1,5 +1,5 @@
-
 import React, { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,6 +23,7 @@ const MedicalRecordDialogContent = ({
   onRecordAdded,
   patientMap,
 }: MedicalRecordDialogContentProps) => {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"form" | "scan">("form");
   const [date, setDate] = useState("");
   const [recordType, setRecordType] = useState("");
