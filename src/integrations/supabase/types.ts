@@ -53,6 +53,56 @@ export type Database = {
           },
         ]
       }
+      patient_vitals: {
+        Row: {
+          bmi: number | null
+          created_at: string | null
+          diastolic_pressure: number | null
+          height: number | null
+          id: string
+          measured_at: string
+          patient_id: string
+          pulse_rate: number | null
+          systolic_pressure: number | null
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          bmi?: number | null
+          created_at?: string | null
+          diastolic_pressure?: number | null
+          height?: number | null
+          id?: string
+          measured_at?: string
+          patient_id: string
+          pulse_rate?: number | null
+          systolic_pressure?: number | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          bmi?: number | null
+          created_at?: string | null
+          diastolic_pressure?: number | null
+          height?: number | null
+          id?: string
+          measured_at?: string
+          patient_id?: string
+          pulse_rate?: number | null
+          systolic_pressure?: number | null
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_vitals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null

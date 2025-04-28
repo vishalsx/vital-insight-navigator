@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PatientEditDialog from "@/components/patients/PatientEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import AddMedicalHistoryRecordDialog from "@/components/patients/AddMedicalHistoryRecordDialog";
+import AddVitalsDialog from "@/components/vitals/AddVitalsDialog";
 
 const patient = {
   id: "P-1001",
@@ -158,6 +159,7 @@ export default function PatientDetails() {
   const [editOpen, setEditOpen] = useState(false);
   const [addRecordOpen, setAddRecordOpen] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [addVitalsOpen, setAddVitalsOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchPatient = async () => {
@@ -186,6 +188,23 @@ export default function PatientDetails() {
         notes: rec.scanned_report?.content || "",
         doctor: rec.doctor || "",
       })));
+    }
+  };
+
+  const refreshVitals = async () => {
+    if (!id) return;
+    const { data, error } = await supabase
+      .from("patient_vitals")
+      .select("*")
+      .eq("patient_id", id)
+      .order("measured_at", { ascending: false })
+      .limit(1);
+    
+    if (!error && data.length > 0) {
+      toast({
+        title: "Vitals updated",
+        description: "Latest measurements have been loaded.",
+      });
     }
   };
 
@@ -500,7 +519,7 @@ export default function PatientDetails() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-medium">Vitals Trends</h3>
-                    <Button>
+                    <Button onClick={() => setAddVitalsOpen(true)}>
                       <BarChart2 className="mr-2 h-4 w-4" /> Add Measurement
                     </Button>
                   </div>
@@ -575,6 +594,12 @@ export default function PatientDetails() {
                   </div>
                 </CardContent>
               </Card>
+              <AddVitalsDialog
+                open={addVitalsOpen}
+                onOpenChange={setAddVitalsOpen}
+                patientId={id || ""}
+                onSuccess={refreshVitals}
+              />
             </TabsContent>
           </Tabs>
         </div>
