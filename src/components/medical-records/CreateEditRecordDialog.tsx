@@ -1,18 +1,15 @@
-
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Upload, Camera, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ReportData, ReportAnalysis } from "./ScanReportDialog";
+import type { ReportData } from "./ScanReportDialog";
+import PatientDateSelector from "./PatientDateSelector";
+import RecordForm from "./RecordForm";
+import ScanReportForm from "./ScanReportForm";
 
-export interface CreateEditRecordProps {
+interface CreateEditRecordProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: {
@@ -75,7 +72,7 @@ const CreateEditRecordDialog = ({
     }
   }, [open]);
 
-  // File handling for scan
+  // Form handling functions
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -88,7 +85,6 @@ const CreateEditRecordDialog = ({
     }
   };
 
-  // Simulate camera (optional)
   const captureImage = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ video: true });
@@ -105,7 +101,6 @@ const CreateEditRecordDialog = ({
     }
   };
 
-  // AI analysis mock
   const analyzeReport = async () => {
     if (!reportTypeScan) {
       toast({
@@ -125,7 +120,7 @@ const CreateEditRecordDialog = ({
     }
     setIsScanLoading(true);
     await new Promise(res => setTimeout(res, 1800));
-    const analysis: ReportAnalysis = {
+    const analysis: any = {
       summary: "Patient shows elevated blood glucose and mild hypertension.",
       diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
       recommendations: [
@@ -153,7 +148,6 @@ const CreateEditRecordDialog = ({
     setIsScanLoading(false);
   };
 
-  // Unified submit
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !date ||
@@ -205,56 +199,26 @@ const CreateEditRecordDialog = ({
     }
   };
 
-  // Common: Patient and Date selectors (always required)
-  const patientAndDateSelectors = (
-    <div className="grid grid-cols-2 gap-4">
-      <div>
-        <Label htmlFor="patient">Patient</Label>
-        <select
-          id="patient"
-          className="w-full border rounded px-2 py-1"
-          value={patientId}
-          onChange={e => setPatientId(e.target.value)}
-          required
-        >
-          <option value="">Select patient...</option>
-          {Object.entries(patientMap).map(([id, name]) => (
-            <option key={id} value={id}>
-              {name} ({id})
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <Label htmlFor="date">Date</Label>
-        <Input
-          id="date"
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-          required
-        />
-      </div>
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 flex flex-col h-[80vh]">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle>Create New Medical Record</DialogTitle>
           <DialogDescription>
-            Use tabs below to either fill out the record form or scan a report.
             Patient and Date are required for both options.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6">
-          <Tabs
-            value={activeTab}
-            onValueChange={t => setActiveTab(t as "form" | "scan")}
-            className="w-full"
-          >
+        <div className="p-6 pt-2">
+          <PatientDateSelector
+            patientId={patientId}
+            date={date}
+            patientMap={patientMap}
+            onPatientChange={setPatientId}
+            onDateChange={setDate}
+          />
+
+          <Tabs value={activeTab} onValueChange={t => setActiveTab(t as "form" | "scan")} className="w-full">
             <TabsList className="grid grid-cols-2 w-72 mx-auto mb-4">
               <TabsTrigger value="form">Record Form</TabsTrigger>
               <TabsTrigger value="scan">Scan Report</TabsTrigger>
@@ -263,132 +227,43 @@ const CreateEditRecordDialog = ({
         </div>
 
         <ScrollArea className="flex-1 px-6 overflow-auto">
-          <div className="pb-4">
-            {/* Patient & Date selection always on top */}
-            {patientAndDateSelectors}
-            {/* Record Form Tab Content */}
-            {activeTab === "form" && (
-              <form id="recordForm" onSubmit={handleFormSubmit} className="space-y-4 mt-4">
-                <div>
-                  <Label htmlFor="recordType">Record Type</Label>
-                  <Input id="recordType" value={recordType} onChange={e => setRecordType(e.target.value)} required />
-                </div>
-                <div>
-                  <Label htmlFor="doctor">Doctor</Label>
-                  <Input id="doctor" value={doctor} onChange={e => setDoctor(e.target.value)} required />
-                </div>
-                <div>
-                  <Label htmlFor="department">Department</Label>
-                  <Input id="department" value={department} onChange={e => setDepartment(e.target.value)} />
-                </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Input id="status" value={status} onChange={e => setStatus(e.target.value)} />
-                </div>
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} />
-                </div>
-              </form>
-            )}
-
-            {/* Scan Report Tab Content */}
-            {activeTab === "scan" && (
-              <div className="mt-4 space-y-4">
-                <div>
-                  <Label htmlFor="scanReportType">Report Type</Label>
-                  <Input
-                    id="scanReportType"
-                    placeholder="Lab Result, X-Ray, MRI, etc."
-                    value={reportTypeScan}
-                    onChange={(e) => setReportTypeScan(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="reportFile">Report File</Label>
-                  <Input
-                    id="reportFile"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="scanNotes">Notes</Label>
-                  <Textarea
-                    id="scanNotes"
-                    placeholder="Add any notes about this report"
-                    value={scanNotes}
-                    onChange={e => setScanNotes(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-                {previewUrl && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="text-sm font-medium mb-2">Image Preview</div>
-                      <div className="max-h-[200px] overflow-auto">
-                        <img
-                          src={previewUrl}
-                          alt="Report Preview"
-                          className="max-w-full rounded-md border"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                <div className="flex justify-end gap-2 mt-2">
-                  <Button type="button" variant="outline" onClick={captureImage}>
-                    <Camera className="h-4 w-4 mr-2" /> Activate Camera
-                  </Button>
-                  <Button type="button" onClick={analyzeReport} disabled={isScanLoading || !patientId || !date}>
-                    {isScanLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Analyze Report
-                      </>
-                    )}
-                  </Button>
-                </div>
-                {/* Analysis Result Card */}
-                {scanResult && (
-                  <Card className="mt-4 border-green-400">
-                    <CardContent className="p-4">
-                      <div className="font-bold mb-2">AI Analysis Result:</div>
-                      <div className="text-sm text-green-900 mb-1">Diagnosis: {scanResult.analysis?.diagnosis}</div>
-                      <div className="text-muted-foreground text-xs mb-1">Summary: {scanResult.analysis?.summary}</div>
-                      <div>
-                        <strong>Recommendations:</strong>
-                        <ul className="list-disc ml-6">
-                          {scanResult.analysis?.recommendations.map((rec, idx) => (
-                            <li key={idx}>{rec}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="text-xs text-right mt-2 opacity-70">Confidence: {(scanResult.analysis?.confidence ?? 0 * 100).toFixed(0)}%</div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </div>
+          {activeTab === "form" ? (
+            <RecordForm
+              recordType={recordType}
+              doctor={doctor}
+              department={department}
+              status={status}
+              notes={notes}
+              onRecordTypeChange={setRecordType}
+              onDoctorChange={setDoctor}
+              onDepartmentChange={setDepartment}
+              onStatusChange={setStatus}
+              onNotesChange={setNotes}
+            />
+          ) : (
+            <ScanReportForm
+              reportType={reportTypeScan}
+              notes={scanNotes}
+              previewUrl={previewUrl}
+              isScanLoading={isScanLoading}
+              scanResult={scanResult}
+              onReportTypeChange={setReportTypeScan}
+              onNotesChange={setScanNotes}
+              onFileChange={handleFileChange}
+              onCaptureImage={captureImage}
+              onAnalyzeReport={analyzeReport}
+            />
+          )}
         </ScrollArea>
-        
-        {/* Footer with action buttons (always visible) */}
+
         <DialogFooter className="p-6 border-t bg-background">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
           <Button
             type="submit"
-            form={activeTab === "form" ? "recordForm" : undefined}
+            onClick={handleFormSubmit}
             disabled={submitting}
-            onClick={activeTab === "scan" ? handleFormSubmit : undefined}
           >
             {submitting ? "Creating..." : "Create Record"}
           </Button>
