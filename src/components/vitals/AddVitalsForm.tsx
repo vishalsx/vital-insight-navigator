@@ -46,6 +46,17 @@ const AddVitalsForm = ({ patientId, onSuccess, onCancel }: AddVitalsFormProps) =
       // Calculate BMI
       const bmi = (weight && height) ? calculateBMI(weight, height) : null;
       
+      console.log("Submitting vital measurements:", {
+        patient_id: patientId,
+        systolic_pressure: systolic,
+        diastolic_pressure: diastolic,
+        pulse_rate: pulse,
+        weight: weight,
+        height: height,
+        bmi: bmi,
+        measured_at: new Date().toISOString(),
+      });
+      
       // Insert record into Supabase
       const { error } = await supabase
         .from('patient_vitals')
@@ -57,6 +68,7 @@ const AddVitalsForm = ({ patientId, onSuccess, onCancel }: AddVitalsFormProps) =
           weight: weight,
           height: height,
           bmi: bmi,
+          measured_at: new Date().toISOString(), // Ensure we send the measured_at timestamp
         });
 
       if (error) {

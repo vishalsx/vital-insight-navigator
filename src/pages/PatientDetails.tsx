@@ -162,6 +162,7 @@ export default function PatientDetails() {
   const [addVitalsOpen, setAddVitalsOpen] = useState(false);
   const [patientVitals, setPatientVitals] = useState<any[]>([]);
   const [latestVitals, setLatestVitals] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
   const { toast } = useToast();
 
   const fetchPatient = async () => {
@@ -196,12 +197,16 @@ export default function PatientDetails() {
   const refreshVitals = async () => {
     if (!id) return;
     
+    console.log("Fetching vitals for patient:", id);
+    
     // Fetch all vital records for charts
     const { data: allVitals, error: vitalsError } = await supabase
       .from("patient_vitals")
       .select("*")
       .eq("patient_id", id)
       .order("measured_at", { ascending: true });
+    
+    console.log("Vitals data:", allVitals, "Error:", vitalsError);
     
     if (!vitalsError && allVitals) {
       setPatientVitals(allVitals);
@@ -213,6 +218,8 @@ export default function PatientDetails() {
         diastolic: record.diastolic_pressure,
         heartRate: record.pulse_rate
       }));
+      
+      setChartData(chartData.length > 0 ? chartData : vitalsData);
       
       // If we have vitals data, set the latest record
       if (allVitals.length > 0) {
@@ -553,7 +560,7 @@ export default function PatientDetails() {
                   <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
-                        data={vitalsData}
+                        data={chartData.length > 0 ? chartData : vitalsData}
                         margin={{
                           top: 5,
                           right: 30,
@@ -592,22 +599,44 @@ export default function PatientDetails() {
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground">Latest Blood Pressure</p>
-                        <p className="text-xl font-bold mt-1">128/83 mmHg</p>
-                        <p className="text-xs text-success mt-1">▼ 2 points since last reading</p>
+                        <p className="text-xl font-bold mt-1">
+                          {latestVitals ? 
+                            `${latestVitals.systolic_pressure || '-'}/${latestVitals.diastolic_pressure || '-'} mmHg` : 
+                            "No data"}
+                        </p>
+                        {latestVitals && patientVitals.length > 1 && (
+                          <p className="text-xs text-success mt-1">
+                            ▼ 2 points since last reading
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground">Heart Rate</p>
-                        <p className="text-xl font-bold mt-1">73 bpm</p>
-                        <p className="text-xs text-success mt-1">▼ 3 bpm since last reading</p>
+                        <p className="text-xl font-bold mt-1">
+                          {latestVitals?.pulse_rate ? `${latestVitals.pulse_rate} bpm` : "No data"}
+                        </p>
+                        {latestVitals && patientVitals.length > 1 && (
+                          <p className="text-xs text-success mt-1">
+                            ▼ 3 bpm since last reading
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                     <Card>
                       <CardContent className="p-4">
                         <p className="text-sm text-muted-foreground">BMI</p>
-                        <p className="text-xl font-bold mt-1">24.5</p>
-                        <p className="text-xs text-muted-foreground mt-1">Normal range</p>
+                        <p className="text-xl font-bold mt-1">
+                          {latestVitals?.bmi ? latestVitals.bmi : "No data"}
+                        </p>
+                        {latestVitals?.bmi && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {latestVitals.bmi < 18.5 ? "Underweight" :
+                              latestVitals.bmi < 25 ? "Normal range" :
+                              latestVitals.bmi < 30 ? "Overweight" : "Obese"}
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                     <Card>
