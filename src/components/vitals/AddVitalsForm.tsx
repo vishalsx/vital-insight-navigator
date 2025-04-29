@@ -36,21 +36,33 @@ const AddVitalsForm = ({ patientId, onSuccess, onCancel }: AddVitalsFormProps) =
     setSubmitting(true);
 
     try {
-      const bmi = calculateBMI(Number(formData.weight), Number(formData.height));
+      // Parse values to appropriate types
+      const systolic = formData.systolic ? parseInt(formData.systolic) : null;
+      const diastolic = formData.diastolic ? parseInt(formData.diastolic) : null;
+      const pulse = formData.pulse ? parseInt(formData.pulse) : null;
+      const weight = formData.weight ? parseFloat(formData.weight) : null;
+      const height = formData.height ? parseFloat(formData.height) : null;
       
+      // Calculate BMI
+      const bmi = (weight && height) ? calculateBMI(weight, height) : null;
+      
+      // Insert record into Supabase
       const { error } = await supabase
         .from('patient_vitals')
         .insert({
           patient_id: patientId,
-          systolic_pressure: formData.systolic ? parseInt(formData.systolic) : null,
-          diastolic_pressure: formData.diastolic ? parseInt(formData.diastolic) : null,
-          pulse_rate: formData.pulse ? parseInt(formData.pulse) : null,
-          weight: formData.weight ? parseFloat(formData.weight) : null,
-          height: formData.height ? parseFloat(formData.height) : null,
+          systolic_pressure: systolic,
+          diastolic_pressure: diastolic,
+          pulse_rate: pulse,
+          weight: weight,
+          height: height,
           bmi: bmi,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error inserting vital measurements:", error);
+        throw error;
+      }
 
       toast({
         title: "Measurements added",
@@ -59,6 +71,7 @@ const AddVitalsForm = ({ patientId, onSuccess, onCancel }: AddVitalsFormProps) =
 
       onSuccess();
     } catch (error) {
+      console.error("Error in handleSubmit:", error);
       toast({
         title: "Error adding measurements",
         description: "Failed to save vital measurements. Please try again.",

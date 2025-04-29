@@ -160,6 +160,8 @@ export default function PatientDetails() {
   const [addRecordOpen, setAddRecordOpen] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<any[]>([]);
   const [addVitalsOpen, setAddVitalsOpen] = useState(false);
+  const [patientVitals, setPatientVitals] = useState<any[]>([]);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
   const { toast } = useToast();
 
   const fetchPatient = async () => {
@@ -193,17 +195,40 @@ export default function PatientDetails() {
 
   const refreshVitals = async () => {
     if (!id) return;
-    const { data, error } = await supabase
+    
+    // Fetch all vital records for charts
+    const { data: allVitals, error: vitalsError } = await supabase
       .from("patient_vitals")
       .select("*")
       .eq("patient_id", id)
-      .order("measured_at", { ascending: false })
-      .limit(1);
+      .order("measured_at", { ascending: true });
     
-    if (!error && data.length > 0) {
+    if (!vitalsError && allVitals) {
+      setPatientVitals(allVitals);
+      
+      // Transform data for the chart
+      const chartData = allVitals.map((record: any) => ({
+        date: new Date(record.measured_at).toLocaleDateString(),
+        systolic: record.systolic_pressure,
+        diastolic: record.diastolic_pressure,
+        heartRate: record.pulse_rate
+      }));
+      
+      // If we have vitals data, set the latest record
+      if (allVitals.length > 0) {
+        setLatestVitals(allVitals[allVitals.length - 1]);
+      }
+      
       toast({
         title: "Vitals updated",
         description: "Latest measurements have been loaded.",
+      });
+    } else if (vitalsError) {
+      console.error("Error fetching vitals:", vitalsError);
+      toast({
+        title: "Error loading vitals",
+        description: "Could not retrieve vital measurements.",
+        variant: "destructive",
       });
     }
   };
@@ -211,6 +236,7 @@ export default function PatientDetails() {
   useEffect(() => {
     fetchPatient();
     fetchHistory();
+    refreshVitals();
     // eslint-disable-next-line
   }, [id]);
 
