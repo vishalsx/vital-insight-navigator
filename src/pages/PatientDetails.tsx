@@ -32,6 +32,7 @@ import PatientEditDialog from "@/components/patients/PatientEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import AddMedicalHistoryRecordDialog from "@/components/patients/AddMedicalHistoryRecordDialog";
 import AddVitalsDialog from "@/components/vitals/AddVitalsDialog";
+import { PatientTrends } from "@/components/dashboard/PatientTrends";
 
 const patient = {
   id: "P-1001",
@@ -557,43 +558,7 @@ export default function PatientDetails() {
                     </Button>
                   </div>
                   
-                  <div className="h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={chartData.length > 0 ? chartData : vitalsData}
-                        margin={{
-                          top: 5,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="systolic"
-                          stroke="hsl(var(--destructive))"
-                          name="Systolic"
-                          activeDot={{ r: 8 }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="diastolic"
-                          stroke="hsl(var(--primary))"
-                          name="Diastolic"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="heartRate"
-                          stroke="hsl(var(--accent))"
-                          name="Heart Rate"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <PatientTrends patientId={id} />
                   
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card>
@@ -641,9 +606,15 @@ export default function PatientDetails() {
                     </Card>
                     <Card>
                       <CardContent className="p-4">
-                        <p className="text-sm text-muted-foreground">Blood Glucose</p>
-                        <p className="text-xl font-bold mt-1">98 mg/dL</p>
-                        <p className="text-xs text-muted-foreground mt-1">Fasting</p>
+                        <p className="text-sm text-muted-foreground">Height / Weight</p>
+                        <p className="text-xl font-bold mt-1">
+                          {latestVitals ? 
+                            `${latestVitals.height || '-'} cm / ${latestVitals.weight || '-'} kg` : 
+                            "No data"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Last measured: {latestVitals ? new Date(latestVitals.measured_at).toLocaleDateString() : "N/A"}
+                        </p>
                       </CardContent>
                     </Card>
                   </div>

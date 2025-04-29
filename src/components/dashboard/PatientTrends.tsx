@@ -10,9 +10,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock data for patient trends
-const data = [
+interface PatientTrendsProps {
+  patientId?: string;
+}
+
+// Default mock data for patient trends when no data is available
+const defaultData = [
   {
     month: "Jan",
     newPatients: 65,
@@ -57,17 +63,66 @@ const data = [
   },
 ];
 
-export function PatientTrends() {
+export function PatientTrends({ patientId }: PatientTrendsProps) {
+  const [vitalsData, setVitalsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPatientVitals = async () => {
+      if (!patientId) return;
+      
+      try {
+        setLoading(true);
+        
+        const { data, error } = await supabase
+          .from("patient_vitals")
+          .select("*")
+          .eq("patient_id", patientId)
+          .order("measured_at", { ascending: true });
+        
+        if (error) {
+          console.error("Error fetching patient vitals:", error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          // Transform the data for the chart
+          const formattedData = data.map((record) => ({
+            date: new Date(record.measured_at).toLocaleDateString(),
+            systolic: record.systolic_pressure,
+            diastolic: record.diastolic_pressure,
+            heartRate: record.pulse_rate
+          }));
+          
+          setVitalsData(formattedData);
+        }
+      } catch (error) {
+        console.error("Error in fetchPatientVitals:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatientVitals();
+  }, [patientId]);
+
+  // Determine which data to use - real patient data or default data
+  const chartData = vitalsData.length > 0 ? vitalsData : defaultData;
+  const showPatientData = vitalsData.length > 0;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl">Patient Trends</CardTitle>
+        <CardTitle className="text-xl">
+          {showPatientData ? "Patient Vitals Trends" : "Patient Trends"} 
+          {loading && " (Loading...)"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={data}
+              data={chartData}
               margin={{
                 top: 5,
                 right: 30,
@@ -76,21 +131,48 @@ export function PatientTrends() {
               }}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
+              <XAxis dataKey={showPatientData ? "date" : "month"} />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="newPatients"
-                stroke="hsl(var(--primary))"
-                activeDot={{ r: 8 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="readmissions"
-                stroke="hsl(var(--accent))"
-              />
+              
+              {showPatientData ? (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="systolic"
+                    name="Systolic BP"
+                    stroke="hsl(var(--destructive))"
+                    activeDot={{ r: 8 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="diastolic"
+                    name="Diastolic BP"
+                    stroke="hsl(var(--primary))"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="heartRate"
+                    name="Heart Rate"
+                    stroke="hsl(var(--accent))"
+                  />
+                </>
+              ) : (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="newPatients"
+                    stroke="hsl(var(--primary))"
+                    activeDot={{ r: 8 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="readmissions"
+                    stroke="hsl(var(--accent))"
+                  />
+                </>
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
