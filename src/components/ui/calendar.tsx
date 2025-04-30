@@ -56,11 +56,7 @@ function Calendar({
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
       }}
-      formatters={{
-        formatDay: (date) => date.getDate().toString(),
-        formatMonth: (date) => date.toLocaleString('default', { month: 'short' }),
-        formatYear: (date) => date.getFullYear().toString(),
-      }}
+      // Remove the formatters object that was causing the type error
       {...props}
     />
   );
