@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pill } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 
 export default function MedicationsTab() {
   const medications = [
@@ -66,12 +67,12 @@ export default function MedicationsTab() {
               <div className="text-sm">
                 <p>
                   <span className="text-muted-foreground mr-1">Start Date:</span>
-                  {med.startDate}
+                  {formatDate(med.startDate)}
                 </p>
                 {med.endDate && (
                   <p>
                     <span className="text-muted-foreground mr-1">End Date:</span>
-                    {med.endDate}
+                    {formatDate(med.endDate)}
                   </p>
                 )}
                 <p>

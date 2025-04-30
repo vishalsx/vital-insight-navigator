@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText } from "lucide-react";
 import AddMedicalHistoryRecordDialog from "@/components/patients/AddMedicalHistoryRecordDialog";
+import { formatDate } from "@/utils/dateUtils";
 
 interface MedicalHistoryTabProps {
   historyRecords: any[];
@@ -73,7 +74,7 @@ export default function MedicalHistoryTab({
                     {record.type}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
-                    {record.date}
+                    {formatDate(record.date)}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {record.doctor}

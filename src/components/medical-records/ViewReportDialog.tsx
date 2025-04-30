@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Printer, Share2 } from "lucide-react";
 import { ReportData } from "./ScanReportDialog";
 import ReportAnalysisCard from "./ReportAnalysisCard";
+import { formatDate } from "@/utils/dateUtils";
 
 interface ViewReportDialogProps {
   open: boolean;
@@ -21,7 +22,7 @@ const ViewReportDialog = ({ open, onOpenChange, report }: ViewReportDialogProps)
         <DialogHeader>
           <DialogTitle>Medical Report: {report.reportType}</DialogTitle>
           <DialogDescription>
-            Patient ID: {report.patientId} | Date: {report.date}
+            Patient ID: {report.patientId} | Date: {formatDate(report.date)}
           </DialogDescription>
         </DialogHeader>
 

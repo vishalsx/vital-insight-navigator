@@ -2,6 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, MessageSquare } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 
 interface OverviewTabProps {
   patient: any;
@@ -104,7 +105,7 @@ function UpcomingAppointmentsCard() {
             <p className="font-medium">Annual Check-up</p>
             <div className="flex items-center text-sm text-muted-foreground mt-1">
               <Calendar className="h-3 w-3 mr-1" />
-              July 28, 2023 • 10:00 AM
+              {formatDate("2023-07-28")} • 10:00 AM
             </div>
             <div className="flex items-center text-sm text-muted-foreground mt-1">
               <MessageSquare className="h-3 w-3 mr-1" />
@@ -115,7 +116,7 @@ function UpcomingAppointmentsCard() {
             <p className="font-medium">Blood Work</p>
             <div className="flex items-center text-sm text-muted-foreground mt-1">
               <Calendar className="h-3 w-3 mr-1" />
-              August 5, 2023 • 8:30 AM
+              {formatDate("2023-08-05")} • 8:30 AM
             </div>
             <div className="flex items-center text-sm text-muted-foreground mt-1">
               <MessageSquare className="h-3 w-3 mr-1" />

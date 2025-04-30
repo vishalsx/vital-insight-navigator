@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Download, Upload } from "lucide-react";
 import { MedicalRecord } from "@/types/medicalRecords";
+import { formatDate } from "@/utils/dateUtils";
 
 interface RecordsTableProps {
   records: MedicalRecord[];
@@ -66,7 +67,7 @@ const RecordsTable = ({ records, onViewReport }: RecordsTableProps) => {
                   </Link>
                 </TableCell>
                 <TableCell>{record.recordType}</TableCell>
-                <TableCell>{record.date}</TableCell>
+                <TableCell>{formatDate(record.date)}</TableCell>
                 <TableCell>{record.doctor}</TableCell>
                 <TableCell>{record.department}</TableCell>
                 <TableCell>

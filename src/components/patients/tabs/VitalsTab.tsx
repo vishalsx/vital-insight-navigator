@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart2 } from "lucide-react";
 import { PatientTrends } from "@/components/dashboard/PatientTrends";
 import AddVitalsDialog from "@/components/vitals/AddVitalsDialog";
+import { formatDate } from "@/utils/dateUtils";
 
 interface VitalsTabProps {
   patientId: string;
@@ -70,7 +71,7 @@ export default function VitalsTab({
                 "No data"
               }
               description={latestVitals ? 
-                `Last measured: ${new Date(latestVitals.measured_at).toLocaleDateString()}` : 
+                `Last measured: ${latestVitals.measured_at ? formatDate(latestVitals.measured_at) : 'N/A'}` : 
                 "N/A"
               }
             />

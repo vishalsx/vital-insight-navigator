@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, Calendar, Activity, AlertCircle } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 
 interface PatientInfoSidebarProps {
   patient: any;
@@ -39,7 +40,7 @@ export default function PatientInfoSidebar({ patient }: PatientInfoSidebarProps)
               <Clock className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="font-medium">Date of Birth</p>
-                <p className="text-muted-foreground">{patient.dob}</p>
+                <p className="text-muted-foreground">{formatDate(patient.dob)}</p>
               </div>
             </div>
 
