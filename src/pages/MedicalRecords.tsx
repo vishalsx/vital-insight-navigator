@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -34,34 +35,49 @@ export default function MedicalRecords() {
   }, []);
 
   const fetchMedicalRecords = async () => {
-    const { data, error } = await supabase
-      .from("medical_records")
-      .select("*")
-      .order("date", { ascending: false });
-    if (error) {
-      toast({ title: "Error fetching records", description: error.message, variant: "destructive" });
+    try {
+      const { data, error } = await supabase
+        .from("medical_records")
+        .select("*")
+        .order("date", { ascending: false });
+      
+      if (error) {
+        toast({ title: "Error fetching records", description: error.message, variant: "destructive" });
+        setRecords([]);
+        return;
+      }
+      
+      // Type-safe conversion of scanned_report
+      const mappedRecords: MedicalRecord[] = (data || []).map((rec) => ({
+        id: rec.id,
+        patientId: rec.patient_id,
+        patientName: patientMap[rec.patient_id] || "Unknown Patient",
+        recordType: rec.record_type,
+        date: rec.date,
+        doctor: rec.doctor || "",
+        department: rec.department || "",
+        status: rec.status || "",
+        scannedReport: rec.scanned_report ? (rec.scanned_report as unknown as ReportData) : undefined,
+      }));
+      
+      setRecords(mappedRecords);
+      console.log("Fetched records:", mappedRecords);
+    } catch (fetchError) {
+      console.error("Error in fetchMedicalRecords:", fetchError);
+      toast({ 
+        title: "Failed to fetch records", 
+        description: "An unexpected error occurred", 
+        variant: "destructive" 
+      });
       setRecords([]);
-      return;
     }
-    const mappedRecords: MedicalRecord[] = (data || []).map((rec: any) => ({
-      id: rec.id,
-      patientId: rec.patient_id,
-      patientName: patientMap[rec.patient_id] || "Unknown Patient",
-      recordType: rec.record_type,
-      date: rec.date,
-      doctor: rec.doctor || "",
-      department: rec.department || "",
-      status: rec.status || "",
-      scannedReport: rec.scanned_report ? (rec.scanned_report as unknown as ReportData) : undefined,
-    }));
-    setRecords(mappedRecords);
   };
 
   useEffect(() => {
     if (Object.keys(patientMap).length > 0) {
       fetchMedicalRecords();
     }
-  }, [patientMap, toast]);
+  }, [patientMap]);
 
   const filteredRecords = records.filter(
     (record) =>
@@ -89,56 +105,70 @@ export default function MedicalRecords() {
       });
       return;
     }
-    const payload: any = {
-      patient_id: formData.patientId,
-      record_type: formData.recordType,
-      date: formData.date,
-      doctor: formData.doctor,
-      department: formData.department || "",
-      status: formData.status || "",
-    };
-    if (formData.scannedReport) {
-      payload.scanned_report = formData.scannedReport;
-    } else if (formData.notes) {
-      payload.scanned_report = { 
-        id: `REC-${Date.now().toString().slice(-6)}`,
-        patientId: formData.patientId,
-        reportType: formData.recordType,
+    
+    try {
+      const payload = {
+        patient_id: formData.patientId,
+        record_type: formData.recordType,
         date: formData.date,
-        content: formData.notes 
+        doctor: formData.doctor,
+        department: formData.department || "",
+        status: formData.status || "",
+        scanned_report: formData.scannedReport ? formData.scannedReport : 
+          (formData.notes ? {
+            id: `REC-${Date.now().toString().slice(-6)}`,
+            patientId: formData.patientId,
+            reportType: formData.recordType,
+            date: formData.date,
+            content: formData.notes
+          } : null)
       };
-    }
-    const { data, error } = await supabase.from("medical_records")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) {
+
+      const { data, error } = await supabase
+        .from("medical_records")
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        toast({
+          title: "Failed to add record",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const scannedReport = data.scanned_report 
+        ? (data.scanned_report as unknown as ReportData) 
+        : undefined;
+
+      const newRecord: MedicalRecord = {
+        id: data.id,
+        patientId: data.patient_id,
+        patientName: patientMap[data.patient_id] || "Unknown Patient",
+        recordType: data.record_type,
+        date: data.date,
+        doctor: data.doctor || "",
+        department: data.department || "",
+        status: data.status || "",
+        scannedReport: scannedReport,
+      };
+      
+      setRecords(prev => [newRecord, ...prev]);
+      
+      toast({
+        title: "Record Added",
+        description: `${formData.recordType} record has been added to medical records.`,
+      });
+    } catch (createError) {
+      console.error("Error in handleCreateRecord:", createError);
       toast({
         title: "Failed to add record",
-        description: error.message,
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
-      return;
     }
-    const scannedReport = data.scanned_report 
-      ? (data.scanned_report as unknown as ReportData) 
-      : undefined;
-    const newRecord: MedicalRecord = {
-      id: data.id,
-      patientId: data.patient_id,
-      patientName: patientMap[data.patient_id] || "Unknown Patient",
-      recordType: data.record_type,
-      date: data.date,
-      doctor: data.doctor || "",
-      department: data.department || "",
-      status: data.status || "",
-      scannedReport: scannedReport,
-    };
-    setRecords(prev => [newRecord, ...prev]);
-    toast({
-      title: "Record Added",
-      description: `${formData.recordType} record has been added to medical records.`,
-    });
   };
 
   const handleEditRecord = async (record: MedicalRecord) => {
@@ -147,13 +177,28 @@ export default function MedicalRecords() {
 
   const handleDeleteRecord = async (record: MedicalRecord) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
-    const { error } = await supabase.from("medical_records").delete().eq("id", record.id);
-    if (error) {
-      toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
-      return;
+    
+    try {
+      const { error } = await supabase
+        .from("medical_records")
+        .delete()
+        .eq("id", record.id);
+        
+      if (error) {
+        toast({ title: "Failed to delete", description: error.message, variant: "destructive" });
+        return;
+      }
+      
+      setRecords(prev => prev.filter(r => r.id !== record.id));
+      toast({ title: "Record deleted" });
+    } catch (deleteError) {
+      console.error("Error in handleDeleteRecord:", deleteError);
+      toast({
+        title: "Failed to delete record",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
     }
-    setRecords(prev => prev.filter(r => r.id !== record.id));
-    toast({ title: "Record deleted" });
   };
 
   const handleViewReport = (record: MedicalRecord) => {
