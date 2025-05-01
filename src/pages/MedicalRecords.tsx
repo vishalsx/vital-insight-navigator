@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -190,7 +189,97 @@ export default function MedicalRecords() {
   };
 
   const handleEditRecord = async (record: MedicalRecord) => {
-    toast({ title: "Edit not implemented yet", description: "Feature coming soon!" });
+    setRecordToEdit(record);
+    setCreateDialogOpen(true);
+  };
+
+  const handleUpdateRecord = async (formData: {
+    patientId: string;
+    recordType: string;
+    date: string;
+    doctor: string;
+    department: string;
+    status: string;
+    notes?: string;
+    scannedReport?: ReportData;
+  }) => {
+    if (!recordToEdit) return;
+    
+    try {
+      // Create a plain object from the scanned report to ensure it's compatible with Json type
+      const scannedReportJson = formData.scannedReport 
+        ? {
+            id: formData.scannedReport.id,
+            patientId: formData.scannedReport.patientId,
+            reportType: formData.scannedReport.reportType,
+            date: formData.scannedReport.date,
+            content: formData.scannedReport.content,
+            imageUrl: formData.scannedReport.imageUrl || "",
+            analysis: formData.scannedReport.analysis ? {
+              summary: formData.scannedReport.analysis.summary,
+              diagnosis: formData.scannedReport.analysis.diagnosis,
+              recommendations: formData.scannedReport.analysis.recommendations,
+              confidence: formData.scannedReport.analysis.confidence
+            } : undefined
+          }
+        : (formData.notes ? {
+            id: `REC-${Date.now().toString().slice(-6)}`,
+            patientId: formData.patientId,
+            reportType: formData.recordType,
+            date: formData.date,
+            content: formData.notes
+          } : null);
+
+      const payload = {
+        patient_id: formData.patientId,
+        record_type: formData.recordType,
+        date: formData.date,
+        doctor: formData.doctor,
+        department: formData.department || "",
+        status: formData.status || "",
+        scanned_report: scannedReportJson
+      };
+
+      const { error } = await supabase
+        .from("medical_records")
+        .update(payload)
+        .eq("id", recordToEdit.id);
+
+      if (error) {
+        toast({
+          title: "Failed to update record",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update the local records state with the edited record
+      setRecords(prevRecords => 
+        prevRecords.map(rec => rec.id === recordToEdit.id ? {
+          ...rec,
+          recordType: formData.recordType,
+          date: formData.date,
+          doctor: formData.doctor,
+          department: formData.department,
+          status: formData.status,
+          scannedReport: formData.scannedReport || undefined
+        } : rec)
+      );
+      
+      setRecordToEdit(null);
+      toast({
+        title: "Record Updated",
+        description: `${formData.recordType} record has been updated successfully.`,
+      });
+    } catch (updateError) {
+      console.error("Error in handleUpdateRecord:", updateError);
+      toast({
+        title: "Failed to update record",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteRecord = async (record: MedicalRecord) => {
@@ -230,6 +319,13 @@ export default function MedicalRecords() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setRecordToEdit(null);
+    }
+    setCreateDialogOpen(open);
   };
 
   return (
@@ -278,9 +374,10 @@ export default function MedicalRecords() {
 
       <CreateEditRecordDialog
         open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onSubmit={handleCreateRecord}
+        onOpenChange={handleDialogOpenChange}
+        onSubmit={recordToEdit ? handleUpdateRecord : handleCreateRecord}
         patientMap={patientMap}
+        recordToEdit={recordToEdit}
       />
 
       <ViewReportDialog

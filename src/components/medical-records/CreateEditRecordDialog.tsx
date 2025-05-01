@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ReportData } from "./ScanReportDialog";
+import type { MedicalRecord } from "@/types/medicalRecords";
 import PatientDateSelector from "./PatientDateSelector";
 import RecordForm from "./RecordForm";
 import ScanReportForm from "./ScanReportForm";
@@ -23,6 +25,7 @@ interface CreateEditRecordProps {
     scannedReport?: ReportData;
   }) => void;
   patientMap: { [id: string]: string };
+  recordToEdit?: MedicalRecord | null;
 }
 
 const CreateEditRecordDialog = ({
@@ -30,6 +33,7 @@ const CreateEditRecordDialog = ({
   onOpenChange,
   onSubmit,
   patientMap,
+  recordToEdit,
 }: CreateEditRecordProps) => {
   const [activeTab, setActiveTab] = useState<"form" | "scan">("form");
   const [patientId, setPatientId] = useState("");
@@ -51,8 +55,33 @@ const CreateEditRecordDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
+  // Set form values if editing a record
+  useEffect(() => {
+    if (open && recordToEdit) {
+      setPatientId(recordToEdit.patientId);
+      setDate(recordToEdit.date);
+      setRecordType(recordToEdit.recordType);
+      setDoctor(recordToEdit.doctor);
+      setDepartment(recordToEdit.department);
+      setStatus(recordToEdit.status);
+      
+      // If there's a scanned report, populate those fields
+      if (recordToEdit.scannedReport) {
+        setActiveTab("scan");
+        setReportTypeScan(recordToEdit.scannedReport.reportType);
+        setScanNotes(recordToEdit.scannedReport.content);
+        setScanResult(recordToEdit.scannedReport);
+        setPreviewUrl(recordToEdit.scannedReport.imageUrl || null);
+      } else {
+        setActiveTab("form");
+        // Try to extract notes from scanResult if available
+        setNotes(recordToEdit.scannedReport?.content || "");
+      }
+    }
+  }, [open, recordToEdit]);
+
   // Reset form on close
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) {
       setPatientId("");
       setDate("");
@@ -132,7 +161,7 @@ const CreateEditRecordDialog = ({
       confidence: 0.89,
     };
     const newReport: ReportData = {
-      id: `REC-${Date.now().toString().slice(-6)}`,
+      id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
       patientId: patientId || "unknown",
       reportType: reportTypeScan,
       date: date || new Date().toISOString().split("T")[0],
@@ -190,8 +219,8 @@ const CreateEditRecordDialog = ({
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "Error creating record",
-        description: "There was a problem creating the medical record.",
+        title: "Error with record",
+        description: "There was a problem processing the medical record.",
         variant: "destructive",
       });
     } finally {
@@ -199,11 +228,14 @@ const CreateEditRecordDialog = ({
     }
   };
 
+  const dialogTitle = recordToEdit ? "Edit Medical Record" : "Create New Medical Record";
+  const submitButtonText = recordToEdit ? (submitting ? "Updating..." : "Update Record") : (submitting ? "Creating..." : "Create Record");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 flex flex-col h-[80vh]">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Create New Medical Record</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
             Patient and Date are required for both options.
           </DialogDescription>
@@ -216,6 +248,7 @@ const CreateEditRecordDialog = ({
             patientMap={patientMap}
             onPatientChange={setPatientId}
             onDateChange={setDate}
+            disabled={Boolean(recordToEdit)} // Disable patient selection when editing
           />
 
           <Tabs value={activeTab} onValueChange={t => setActiveTab(t as "form" | "scan")} className="w-full">
@@ -265,7 +298,7 @@ const CreateEditRecordDialog = ({
             onClick={handleFormSubmit}
             disabled={submitting}
           >
-            {submitting ? "Creating..." : "Create Record"}
+            {submitButtonText}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,6 +2,13 @@
 import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PatientDateSelectorProps {
   patientId: string;
@@ -9,6 +16,7 @@ interface PatientDateSelectorProps {
   patientMap: { [id: string]: string };
   onPatientChange: (value: string) => void;
   onDateChange: (value: string) => void;
+  disabled?: boolean;
 }
 
 const PatientDateSelector = ({
@@ -17,33 +25,36 @@ const PatientDateSelector = ({
   patientMap,
   onPatientChange,
   onDateChange,
+  disabled = false,
 }: PatientDateSelectorProps) => {
   return (
-    <div className="grid grid-cols-2 gap-4 mb-4">
-      <div>
-        <Label htmlFor="patient">Patient</Label>
-        <select
-          id="patient"
-          className="w-full border rounded px-2 py-1"
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="space-y-2">
+        <Label htmlFor="patient">Patient *</Label>
+        <Select
           value={patientId}
-          onChange={e => onPatientChange(e.target.value)}
-          required
+          onValueChange={onPatientChange}
+          disabled={disabled}
         >
-          <option value="">Select patient...</option>
-          {Object.entries(patientMap).map(([id, name]) => (
-            <option key={id} value={id}>
-              {name} ({id})
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="patient">
+            <SelectValue placeholder="Select patient" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(patientMap).map(([id, name]) => (
+              <SelectItem key={id} value={id}>
+                {name} ({id})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <div>
-        <Label htmlFor="date">Date</Label>
+      <div className="space-y-2">
+        <Label htmlFor="date">Date *</Label>
         <Input
           id="date"
           type="date"
           value={date}
-          onChange={e => onDateChange(e.target.value)}
+          onChange={(e) => onDateChange(e.target.value)}
           required
         />
       </div>
