@@ -13,6 +13,7 @@ import { fetchPatientMap } from "@/supabasePatients";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { formatDate } from "@/utils/dateUtils";
 
 type PatientMap = { [patientId: string]: string };
 
@@ -107,6 +108,30 @@ export default function MedicalRecords() {
     }
     
     try {
+      // Create a plain object from the scanned report to ensure it's compatible with Json type
+      const scannedReportJson = formData.scannedReport 
+        ? {
+            id: formData.scannedReport.id,
+            patientId: formData.scannedReport.patientId,
+            reportType: formData.scannedReport.reportType,
+            date: formData.scannedReport.date,
+            content: formData.scannedReport.content,
+            imageUrl: formData.scannedReport.imageUrl || "",
+            analysis: formData.scannedReport.analysis ? {
+              summary: formData.scannedReport.analysis.summary,
+              diagnosis: formData.scannedReport.analysis.diagnosis,
+              recommendations: formData.scannedReport.analysis.recommendations,
+              confidence: formData.scannedReport.analysis.confidence
+            } : undefined
+          }
+        : (formData.notes ? {
+            id: `REC-${Date.now().toString().slice(-6)}`,
+            patientId: formData.patientId,
+            reportType: formData.recordType,
+            date: formData.date,
+            content: formData.notes
+          } : null);
+
       const payload = {
         patient_id: formData.patientId,
         record_type: formData.recordType,
@@ -114,14 +139,7 @@ export default function MedicalRecords() {
         doctor: formData.doctor,
         department: formData.department || "",
         status: formData.status || "",
-        scanned_report: formData.scannedReport ? formData.scannedReport : 
-          (formData.notes ? {
-            id: `REC-${Date.now().toString().slice(-6)}`,
-            patientId: formData.patientId,
-            reportType: formData.recordType,
-            date: formData.date,
-            content: formData.notes
-          } : null)
+        scanned_report: scannedReportJson
       };
 
       const { data, error } = await supabase
@@ -238,7 +256,7 @@ export default function MedicalRecords() {
               <tr key={record.id}>
                 <td>{record.patientName}</td>
                 <td>{record.recordType}</td>
-                <td>{record.date}</td>
+                <td>{formatDate(record.date)}</td>
                 <td>{record.doctor}</td>
                 <td>{record.status}</td>
                 <td className="flex gap-2">

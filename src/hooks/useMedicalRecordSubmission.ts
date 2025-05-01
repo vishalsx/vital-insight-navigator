@@ -57,6 +57,7 @@ export const useMedicalRecordSubmission = (onSuccess: () => void) => {
         status,
       };
       
+      // Create a plain serializable object for the scanned_report
       if (activeTab === "scan" && scanResult) {
         basePayload.scanned_report = {
           id: scanResult.id,
@@ -73,13 +74,13 @@ export const useMedicalRecordSubmission = (onSuccess: () => void) => {
           } : undefined
         };
       } else {
-        basePayload.scanned_report = {
+        basePayload.scanned_report = notes ? {
           id: `REC-${Date.now().toString().slice(-6)}`,
           patientId,
           reportType: recordType,
           date,
           content: notes
-        };
+        } : null;
       }
 
       const { error } = await supabase.from("medical_records").insert(basePayload);
