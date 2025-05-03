@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -49,18 +48,32 @@ export default function MedicalRecords() {
       }
       
       // Type-safe conversion of scanned_report
-      const mappedRecords: MedicalRecord[] = (data || []).map((rec) => ({
-        id: rec.id,
-        patientId: rec.patient_id,
-        patientName: patientMap[rec.patient_id] || "Unknown Patient",
-        recordType: rec.record_type,
-        date: rec.date,
-        doctor: rec.doctor || "",
-        department: rec.department || "",
-        status: rec.status || "",
-        notes: rec.scanned_report?.content || "", // Ensure notes are captured
-        scannedReport: rec.scanned_report ? (rec.scanned_report as unknown as ReportData) : undefined,
-      }));
+      const mappedRecords: MedicalRecord[] = (data || []).map((rec) => {
+        // Safely extract content from scanned_report if it exists
+        const scannedReport = rec.scanned_report as any; // Use any temporarily to extract values
+        const notes = scannedReport?.content || rec.notes || "";
+        
+        return {
+          id: rec.id,
+          patientId: rec.patient_id,
+          patientName: patientMap[rec.patient_id] || "Unknown Patient",
+          recordType: rec.record_type,
+          date: rec.date,
+          doctor: rec.doctor || "",
+          department: rec.department || "",
+          status: rec.status || "",
+          notes: notes,
+          scannedReport: rec.scanned_report ? {
+            id: scannedReport?.id || "",
+            patientId: scannedReport?.patientId || rec.patient_id,
+            reportType: scannedReport?.reportType || rec.record_type,
+            date: scannedReport?.date || rec.date,
+            content: scannedReport?.content || notes,
+            imageUrl: scannedReport?.imageUrl || "",
+            analysis: scannedReport?.analysis
+          } as ReportData : undefined,
+        };
+      });
       
       setRecords(mappedRecords);
       console.log("Fetched records:", mappedRecords);
@@ -140,6 +153,7 @@ export default function MedicalRecords() {
         doctor: formData.doctor,
         department: formData.department || "",
         status: formData.status || "",
+        notes: formData.notes || "", // Store notes directly in the record
         scanned_report: scannedReportJson
       };
 
@@ -159,7 +173,15 @@ export default function MedicalRecords() {
       }
 
       const scannedReport = data.scanned_report 
-        ? (data.scanned_report as unknown as ReportData) 
+        ? {
+            id: (data.scanned_report as any)?.id || "",
+            patientId: (data.scanned_report as any)?.patientId || data.patient_id,
+            reportType: (data.scanned_report as any)?.reportType || data.record_type,
+            date: (data.scanned_report as any)?.date || data.date,
+            content: (data.scanned_report as any)?.content || data.notes || "",
+            imageUrl: (data.scanned_report as any)?.imageUrl || "",
+            analysis: (data.scanned_report as any)?.analysis
+          } as ReportData
         : undefined;
 
       const newRecord: MedicalRecord = {
@@ -171,7 +193,7 @@ export default function MedicalRecords() {
         doctor: data.doctor || "",
         department: data.department || "",
         status: data.status || "",
-        notes: data.scanned_report?.content || "",
+        notes: data.notes || (data.scanned_report as any)?.content || "",
         scannedReport: scannedReport,
       };
       
@@ -240,6 +262,7 @@ export default function MedicalRecords() {
         doctor: formData.doctor,
         department: formData.department || "",
         status: formData.status || "",
+        notes: formData.notes || "", // Store notes directly in the record
         scanned_report: scannedReportJson
       };
 

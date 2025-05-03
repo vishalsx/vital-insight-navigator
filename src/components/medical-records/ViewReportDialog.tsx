@@ -2,7 +2,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, Share2, AlertCircle, FileText, User, Calendar, UserRound, Building, ClipboardList } from "lucide-react";
+import { Download, Printer, Share2, AlertCircle, FileText, User, Calendar, UserRound, Building, ClipboardList, FileInput } from "lucide-react";
 import { ReportData } from "./ScanReportDialog";
 import ReportAnalysisCard from "./ReportAnalysisCard";
 import { formatDate } from "@/utils/dateUtils";
@@ -42,10 +42,8 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
 
   const hasScannedReport = Boolean(record.scannedReport);
   
-  // Get notes from the appropriate location - either from scannedReport or directly from record
-  const notes = hasScannedReport 
-    ? record.scannedReport?.content
-    : record.notes;
+  // Get notes from the appropriate location - prefer notes field, fall back to scannedReport content
+  const notes = record.notes || (hasScannedReport ? record.scannedReport?.content : "");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,6 +111,21 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
               </div>
             </div>
 
+            {/* Notes section - display notes from either source */}
+            <div className="border rounded-md p-4">
+              <h3 className="text-lg font-medium mb-2 flex items-center">
+                <FileInput className="h-5 w-5 mr-2 text-primary" />
+                Notes
+              </h3>
+              {notes ? (
+                <p className="text-sm">{notes}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No notes available
+                </p>
+              )}
+            </div>
+
             {/* Show these sections only if it's a scanned report */}
             {hasScannedReport && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -145,18 +158,6 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
                 </div>
               </div>
             )}
-
-            {/* Notes section - display for both regular records and scanned reports */}
-            <div className="border rounded-md p-4">
-              <h3 className="text-lg font-medium mb-2">Notes</h3>
-              {notes ? (
-                <p className="text-sm">{notes}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No notes available
-                </p>
-              )}
-            </div>
           </div>
         </ScrollArea>
 

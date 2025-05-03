@@ -69,12 +69,12 @@ const CreateEditRecordDialog = ({
       if (recordToEdit.scannedReport) {
         setActiveTab("scan");
         setReportTypeScan(recordToEdit.scannedReport.reportType);
-        setScanNotes(recordToEdit.scannedReport.content || "");
+        setScanNotes(recordToEdit.scannedReport.content || recordToEdit.notes || "");
         setScanResult(recordToEdit.scannedReport);
         setPreviewUrl(recordToEdit.scannedReport.imageUrl || null);
       } else {
         setActiveTab("form");
-        // Get notes from the appropriate place
+        // Get notes from the record
         setNotes(recordToEdit.notes || "");
       }
     }
@@ -205,11 +205,13 @@ const CreateEditRecordDialog = ({
           setSubmitting(false);
           return;
         }
+        
         // Make sure we preserve notes in the scan result
         const updatedScanResult = {
           ...scanResult,
           content: scanNotes
         };
+        
         await onSubmit({
           patientId,
           recordType: scanResult.reportType,
@@ -217,7 +219,7 @@ const CreateEditRecordDialog = ({
           doctor: doctor || "N/A",
           department,
           status,
-          notes: scanNotes,
+          notes: scanNotes, // Include scanNotes as notes to ensure it's saved in both places
           scannedReport: updatedScanResult,
         });
       }
@@ -240,7 +242,7 @@ const CreateEditRecordDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 flex flex-col h-[80vh]">
         <DialogHeader className="p-6 pb-2">
-          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogTitle>{recordToEdit ? "Edit Medical Record" : "Create New Medical Record"}</DialogTitle>
           <DialogDescription>
             Patient and Date are required for both options.
           </DialogDescription>
@@ -303,7 +305,9 @@ const CreateEditRecordDialog = ({
             onClick={handleFormSubmit}
             disabled={submitting}
           >
-            {submitButtonText}
+            {recordToEdit 
+              ? (submitting ? "Updating..." : "Update Record") 
+              : (submitting ? "Creating..." : "Create Record")}
           </Button>
         </DialogFooter>
       </DialogContent>
