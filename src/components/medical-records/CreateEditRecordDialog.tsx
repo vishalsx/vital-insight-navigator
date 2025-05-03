@@ -69,13 +69,13 @@ const CreateEditRecordDialog = ({
       if (recordToEdit.scannedReport) {
         setActiveTab("scan");
         setReportTypeScan(recordToEdit.scannedReport.reportType);
-        setScanNotes(recordToEdit.scannedReport.content);
+        setScanNotes(recordToEdit.scannedReport.content || "");
         setScanResult(recordToEdit.scannedReport);
         setPreviewUrl(recordToEdit.scannedReport.imageUrl || null);
       } else {
         setActiveTab("form");
-        // Try to extract notes from scanResult if available
-        setNotes(recordToEdit.scannedReport?.content || "");
+        // Get notes from the appropriate place
+        setNotes(recordToEdit.notes || "");
       }
     }
   }, [open, recordToEdit]);
@@ -205,6 +205,11 @@ const CreateEditRecordDialog = ({
           setSubmitting(false);
           return;
         }
+        // Make sure we preserve notes in the scan result
+        const updatedScanResult = {
+          ...scanResult,
+          content: scanNotes
+        };
         await onSubmit({
           patientId,
           recordType: scanResult.reportType,
@@ -213,7 +218,7 @@ const CreateEditRecordDialog = ({
           department,
           status,
           notes: scanNotes,
-          scannedReport: scanResult,
+          scannedReport: updatedScanResult,
         });
       }
       onOpenChange(false);

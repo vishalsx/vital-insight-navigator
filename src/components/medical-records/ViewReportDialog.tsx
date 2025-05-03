@@ -41,6 +41,11 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
   }
 
   const hasScannedReport = Boolean(record.scannedReport);
+  
+  // Get notes from the appropriate location - either from scannedReport or directly from record
+  const notes = hasScannedReport 
+    ? record.scannedReport?.content
+    : record.notes;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,11 +149,10 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
             {/* Notes section - display for both regular records and scanned reports */}
             <div className="border rounded-md p-4">
               <h3 className="text-lg font-medium mb-2">Notes</h3>
-              {record.scannedReport?.content ? (
-                <p className="text-sm">{record.scannedReport.content}</p>
+              {notes ? (
+                <p className="text-sm">{notes}</p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {/* If there's no scanned report, check if we stored notes elsewhere */}
                   No notes available
                 </p>
               )}

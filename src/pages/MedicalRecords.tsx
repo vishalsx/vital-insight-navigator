@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -57,6 +58,7 @@ export default function MedicalRecords() {
         doctor: rec.doctor || "",
         department: rec.department || "",
         status: rec.status || "",
+        notes: rec.scanned_report?.content || "", // Ensure notes are captured
         scannedReport: rec.scanned_report ? (rec.scanned_report as unknown as ReportData) : undefined,
       }));
       
@@ -114,7 +116,7 @@ export default function MedicalRecords() {
             patientId: formData.scannedReport.patientId,
             reportType: formData.scannedReport.reportType,
             date: formData.scannedReport.date,
-            content: formData.scannedReport.content,
+            content: formData.scannedReport.content || formData.notes || "",
             imageUrl: formData.scannedReport.imageUrl || "",
             analysis: formData.scannedReport.analysis ? {
               summary: formData.scannedReport.analysis.summary,
@@ -169,6 +171,7 @@ export default function MedicalRecords() {
         doctor: data.doctor || "",
         department: data.department || "",
         status: data.status || "",
+        notes: data.scanned_report?.content || "",
         scannedReport: scannedReport,
       };
       
@@ -213,7 +216,7 @@ export default function MedicalRecords() {
             patientId: formData.scannedReport.patientId,
             reportType: formData.scannedReport.reportType,
             date: formData.scannedReport.date,
-            content: formData.scannedReport.content,
+            content: formData.scannedReport.content || formData.notes || "",
             imageUrl: formData.scannedReport.imageUrl || "",
             analysis: formData.scannedReport.analysis ? {
               summary: formData.scannedReport.analysis.summary,
@@ -223,7 +226,7 @@ export default function MedicalRecords() {
             } : undefined
           }
         : (formData.notes ? {
-            id: `REC-${Date.now().toString().slice(-6)}`,
+            id: recordToEdit.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
             patientId: formData.patientId,
             reportType: formData.recordType,
             date: formData.date,
@@ -263,7 +266,16 @@ export default function MedicalRecords() {
           doctor: formData.doctor,
           department: formData.department,
           status: formData.status,
-          scannedReport: formData.scannedReport || undefined
+          notes: formData.notes || "",
+          scannedReport: formData.scannedReport || (formData.notes ? {
+            id: recordToEdit.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
+            patientId: formData.patientId,
+            reportType: formData.recordType,
+            date: formData.date,
+            content: formData.notes,
+            imageUrl: recordToEdit.scannedReport?.imageUrl,
+            analysis: recordToEdit.scannedReport?.analysis
+          } : undefined)
         } : rec)
       );
       
