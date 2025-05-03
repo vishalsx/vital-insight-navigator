@@ -314,8 +314,8 @@ export default function MedicalRecords() {
       setViewReportDialogOpen(true);
     } else {
       toast({
-        title: "No scanned report",
-        description: "This record doesn't have a scanned report to view.",
+        title: "No scanned report available",
+        description: "This record doesn't have a scanned report or was converted to a regular medical record.",
         variant: "destructive",
       });
     }

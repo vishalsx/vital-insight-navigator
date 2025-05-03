@@ -36,7 +36,7 @@ const PatientDateSelector = ({
           onValueChange={onPatientChange}
           disabled={disabled}
         >
-          <SelectTrigger id="patient">
+          <SelectTrigger id="patient" className={disabled ? "bg-gray-100" : ""}>
             <SelectValue placeholder="Select patient" />
           </SelectTrigger>
           <SelectContent>

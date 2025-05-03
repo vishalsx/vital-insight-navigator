@@ -2,7 +2,7 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, Share2 } from "lucide-react";
+import { Download, Printer, Share2, AlertCircle } from "lucide-react";
 import { ReportData } from "./ScanReportDialog";
 import ReportAnalysisCard from "./ReportAnalysisCard";
 import { formatDate } from "@/utils/dateUtils";
@@ -14,7 +14,29 @@ interface ViewReportDialogProps {
 }
 
 const ViewReportDialog = ({ open, onOpenChange, report }: ViewReportDialogProps) => {
-  if (!report) return null;
+  // If there's no report data, render an appropriate message
+  if (!report) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-amber-500 mr-2" />
+              Report Not Available
+            </DialogTitle>
+            <DialogDescription>
+              The report you're trying to view is not available or has been converted to a regular medical record.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
