@@ -21,7 +21,7 @@ export default function MedicalRecords() {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewReportDialogOpen, setViewReportDialogOpen] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<ReportData | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [patientMap, setPatientMap] = useState<PatientMap>({});
   const { toast } = useToast();
   const [recordToEdit, setRecordToEdit] = useState<MedicalRecord | null>(null);
@@ -309,16 +309,8 @@ export default function MedicalRecords() {
   };
 
   const handleViewReport = (record: MedicalRecord) => {
-    if (record.scannedReport) {
-      setSelectedReport(record.scannedReport as ReportData);
-      setViewReportDialogOpen(true);
-    } else {
-      toast({
-        title: "No scanned report available",
-        description: "This record doesn't have a scanned report or was converted to a regular medical record.",
-        variant: "destructive",
-      });
-    }
+    setSelectedRecord(record);
+    setViewReportDialogOpen(true);
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -383,7 +375,7 @@ export default function MedicalRecords() {
       <ViewReportDialog
         open={viewReportDialogOpen}
         onOpenChange={setViewReportDialogOpen}
-        report={selectedReport}
+        record={selectedRecord}
       />
     </div>
   );
