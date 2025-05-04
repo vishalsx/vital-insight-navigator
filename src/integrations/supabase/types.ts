@@ -16,6 +16,7 @@ export type Database = {
           department: string | null
           doctor: string | null
           id: string
+          notes: string | null
           patient_id: string
           record_type: string
           scanned_report: Json | null
@@ -27,6 +28,7 @@ export type Database = {
           department?: string | null
           doctor?: string | null
           id?: string
+          notes?: string | null
           patient_id: string
           record_type: string
           scanned_report?: Json | null
@@ -38,6 +40,7 @@ export type Database = {
           department?: string | null
           doctor?: string | null
           id?: string
+          notes?: string | null
           patient_id?: string
           record_type?: string
           scanned_report?: Json | null

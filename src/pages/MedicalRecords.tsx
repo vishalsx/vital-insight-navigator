@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -54,7 +53,7 @@ export default function MedicalRecords() {
         const scannedReport = rec.scanned_report as any; // Use any temporarily to extract values
         
         // Default notes to empty string if it doesn't exist in the record
-        const recordNotes = (rec as any).notes || "";
+        const recordNotes = rec.notes || "";
         const contentFromReport = scannedReport?.content || "";
         
         // Use record notes or fallback to content from scannedReport
@@ -179,9 +178,8 @@ export default function MedicalRecords() {
         return;
       }
 
-      // Use type assertion to handle the notes field that TypeScript doesn't recognize
-      const dbRecord = data as any;
-      const notesFromDb = dbRecord.notes || "";
+      // Now we can safely access the notes field since it exists in the database
+      const notesFromDb = data.notes || "";
 
       const scannedReport = data.scanned_report 
         ? {
