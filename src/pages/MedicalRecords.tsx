@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -47,11 +48,17 @@ export default function MedicalRecords() {
         return;
       }
       
-      // Type-safe conversion of scanned_report
+      // Type-safe conversion of data from Supabase
       const mappedRecords: MedicalRecord[] = (data || []).map((rec) => {
         // Safely extract content from scanned_report if it exists
         const scannedReport = rec.scanned_report as any; // Use any temporarily to extract values
-        const notes = scannedReport?.content || rec.notes || "";
+        
+        // Default notes to empty string if it doesn't exist in the record
+        const recordNotes = (rec as any).notes || "";
+        const contentFromReport = scannedReport?.content || "";
+        
+        // Use record notes or fallback to content from scannedReport
+        const notes = recordNotes || contentFromReport;
         
         return {
           id: rec.id,
@@ -172,13 +179,17 @@ export default function MedicalRecords() {
         return;
       }
 
+      // Use type assertion to handle the notes field that TypeScript doesn't recognize
+      const dbRecord = data as any;
+      const notesFromDb = dbRecord.notes || "";
+
       const scannedReport = data.scanned_report 
         ? {
             id: (data.scanned_report as any)?.id || "",
             patientId: (data.scanned_report as any)?.patientId || data.patient_id,
             reportType: (data.scanned_report as any)?.reportType || data.record_type,
             date: (data.scanned_report as any)?.date || data.date,
-            content: (data.scanned_report as any)?.content || data.notes || "",
+            content: (data.scanned_report as any)?.content || notesFromDb || "",
             imageUrl: (data.scanned_report as any)?.imageUrl || "",
             analysis: (data.scanned_report as any)?.analysis
           } as ReportData
@@ -193,7 +204,7 @@ export default function MedicalRecords() {
         doctor: data.doctor || "",
         department: data.department || "",
         status: data.status || "",
-        notes: data.notes || (data.scanned_report as any)?.content || "",
+        notes: notesFromDb || (data.scanned_report as any)?.content || "",
         scannedReport: scannedReport,
       };
       
