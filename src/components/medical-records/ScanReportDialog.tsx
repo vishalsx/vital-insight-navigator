@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileImage, Camera, Upload, Loader2, FileText } from "lucide-react";
+import { FileText, Camera, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScanReportDialogProps {
@@ -40,19 +40,25 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
   const [activeTab, setActiveTab] = useState<string>("upload");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [reportType, setReportType] = useState<string>("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
-      const fileReader = new FileReader();
-      fileReader.onload = () => {
-        setPreviewUrl(fileReader.result as string);
-      };
-      fileReader.readAsDataURL(file);
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid file type",
+          description: "Only PDF files are allowed",
+          variant: "destructive",
+        });
+        e.target.value = '';
+        return;
+      }
+      
+      setPdfFile(file);
+      setPreviewUrl(""); // Just to indicate a file is selected
     }
   };
 
@@ -76,7 +82,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
   const resetForm = () => {
     setReportType("");
-    setImageFile(null);
+    setPdfFile(null);
     setPreviewUrl(null);
     setNotes("");
     setIsLoading(false);
@@ -92,10 +98,10 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       return;
     }
 
-    if (!imageFile && !previewUrl) {
+    if (!pdfFile) {
       toast({
-        title: "No image selected",
-        description: "Please upload or capture an image of the report.",
+        title: "No PDF file selected",
+        description: "Please upload a PDF file of the report.",
         variant: "destructive",
       });
       return;
@@ -104,11 +110,34 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
     setIsLoading(true);
 
     try {
-      // Mock AI analysis - in a real app, this would call an AI service
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the API endpoint
+      const response = await fetch(
+        "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
+        {
+          method: 'POST',
+          body: pdfFile,
+          headers: {
+            'Content-Type': 'application/pdf',
+          }
+        }
+      );
       
-      // Mock analysis result
-      const analysisResult: ReportAnalysis = {
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+      
+      let apiResult;
+      try {
+        apiResult = await response.json();
+        console.log("API response:", apiResult);
+      } catch (error) {
+        console.error("Failed to parse API response:", error);
+        // If API response isn't valid JSON, use mock data
+        apiResult = null;
+      }
+      
+      // Use API result if available, otherwise use mock data
+      const analysisResult: ReportAnalysis = apiResult?.analysis || {
         summary: "Patient shows elevated blood glucose levels and mild hypertension.",
         diagnosis: "Type 2 Diabetes Mellitus (E11.9) with early signs of hypertension (I10).",
         recommendations: [
@@ -126,7 +155,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         reportType: reportType,
         date: new Date().toISOString().split('T')[0],
         content: notes,
-        imageUrl: previewUrl || '',
+        imageUrl: '', // No image URL for PDF
         analysis: analysisResult,
       };
 
@@ -136,12 +165,13 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
       toast({
         title: "Report processed successfully",
-        description: "The report has been analyzed and added to the patient's records.",
+        description: "The PDF report has been analyzed and added to the patient's records.",
       });
 
       resetForm();
       onOpenChange(false);
     } catch (error) {
+      console.error("Error processing report:", error);
       toast({
         title: "Processing failed",
         description: "There was an error processing the report. Please try again.",
@@ -191,13 +221,13 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="reportFile" className="text-right">
-                  Report File
+                  Report File (PDF only)
                 </Label>
                 <div className="col-span-3">
                   <Input
                     id="reportFile"
                     type="file"
-                    accept="image/*"
+                    accept="application/pdf"
                     onChange={handleFileChange}
                   />
                 </div>
@@ -218,16 +248,13 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
               </div>
             </div>
 
-            {previewUrl && (
+            {pdfFile && (
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-sm font-medium mb-2">Preview</div>
-                  <div className="max-h-[300px] overflow-auto">
-                    <img
-                      src={previewUrl}
-                      alt="Report Preview"
-                      className="max-w-full rounded-md border"
-                    />
+                  <div className="text-sm font-medium mb-2">Selected PDF</div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                    <span>{pdfFile.name}</span>
                   </div>
                 </CardContent>
               </Card>

@@ -1,11 +1,12 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Loader2, FileText } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { ReportData } from "./ScanReportDialog";
 
 interface ScanReportFormProps {
@@ -33,6 +34,90 @@ const ScanReportForm = ({
   onCaptureImage,
   onAnalyzeReport,
 }: ScanReportFormProps) => {
+  const { toast } = useToast();
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid file type",
+          description: "Only PDF files are allowed",
+          variant: "destructive",
+        });
+        e.target.value = '';
+        return;
+      }
+      
+      setPdfFile(file);
+      
+      // Still call the parent's onFileChange to maintain compatibility
+      onFileChange(e);
+    }
+  };
+
+  const handleAnalyzeReport = async () => {
+    if (!reportType) {
+      toast({
+        title: "Report type required",
+        description: "Please enter a report type before analyzing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!pdfFile) {
+      toast({
+        title: "No PDF file",
+        description: "Please upload a PDF file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setApiError(null);
+    
+    try {
+      // Create form data to send the file
+      const formData = new FormData();
+      formData.append('file', pdfFile);
+      formData.append('reportType', reportType);
+      
+      // Call the API
+      const response = await fetch(
+        "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86", 
+        {
+          method: 'POST',
+          body: pdfFile, // Send the binary file directly
+          headers: {
+            'Content-Type': 'application/pdf',
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log("API response:", result);
+      
+      // Call the parent's onAnalyzeReport to update the state
+      onAnalyzeReport();
+      
+    } catch (error) {
+      console.error("Error analyzing report:", error);
+      setApiError(error instanceof Error ? error.message : "Unknown error occurred");
+      toast({
+        title: "Analysis failed",
+        description: "There was an error analyzing the report.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -45,12 +130,12 @@ const ScanReportForm = ({
         />
       </div>
       <div>
-        <Label htmlFor="reportFile">Report File</Label>
+        <Label htmlFor="reportFile">Report File (PDF only)</Label>
         <Input
           id="reportFile"
           type="file"
-          accept="image/*"
-          onChange={onFileChange}
+          accept="application/pdf"
+          onChange={handleFileChange}
         />
       </div>
       <div>
@@ -66,14 +151,19 @@ const ScanReportForm = ({
       {previewUrl && (
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm font-medium mb-2">Image Preview</div>
-            <div className="max-h-[200px] overflow-auto">
-              <img
-                src={previewUrl}
-                alt="Report Preview"
-                className="max-w-full rounded-md border"
-              />
+            <div className="text-sm font-medium mb-2">File Selected</div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-8 w-8 text-blue-600" />
+              <span>{pdfFile?.name || "PDF Document"}</span>
             </div>
+          </CardContent>
+        </Card>
+      )}
+      {apiError && (
+        <Card className="border-red-300 bg-red-50">
+          <CardContent className="p-4">
+            <div className="text-sm font-medium text-red-600 mb-1">Error</div>
+            <div className="text-xs text-red-500">{apiError}</div>
           </CardContent>
         </Card>
       )}
@@ -81,7 +171,7 @@ const ScanReportForm = ({
         <Button type="button" variant="outline" onClick={onCaptureImage}>
           <Camera className="h-4 w-4 mr-2" /> Activate Camera
         </Button>
-        <Button type="button" onClick={onAnalyzeReport} disabled={isScanLoading}>
+        <Button type="button" onClick={handleAnalyzeReport} disabled={isScanLoading}>
           {isScanLoading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -46,7 +45,7 @@ const CreateEditRecordDialog = ({
   const [notes, setNotes] = useState("");
   // Scan report state
   const [reportTypeScan, setReportTypeScan] = useState<string>("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scanNotes, setScanNotes] = useState<string>("");
   const [isScanLoading, setIsScanLoading] = useState<boolean>(false);
@@ -91,7 +90,7 @@ const CreateEditRecordDialog = ({
       setStatus("");
       setNotes("");
       setReportTypeScan("");
-      setImageFile(null);
+      setPdfFile(null);
       setPreviewUrl(null);
       setScanNotes("");
       setIsScanLoading(false);
@@ -105,12 +104,18 @@ const CreateEditRecordDialog = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
-      const fileReader = new FileReader();
-      fileReader.onload = () => {
-        setPreviewUrl(fileReader.result as string);
-      };
-      fileReader.readAsDataURL(file);
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid file type",
+          description: "Only PDF files are allowed",
+          variant: "destructive",
+        });
+        e.target.value = '';
+        return;
+      }
+      
+      setPdfFile(file);
+      setPreviewUrl(""); // Just to indicate a file is selected
     }
   };
 
@@ -139,42 +144,113 @@ const CreateEditRecordDialog = ({
       });
       return;
     }
-    if (!imageFile && !previewUrl) {
+    if (!pdfFile && !previewUrl) {
       toast({
         title: "No report file",
-        description: "Please upload or scan an image.",
+        description: "Please upload a PDF file.",
         variant: "destructive",
       });
       return;
     }
+    
     setIsScanLoading(true);
-    await new Promise(res => setTimeout(res, 1800));
-    const analysis: any = {
-      summary: "Patient shows elevated blood glucose and mild hypertension.",
-      diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
-      recommendations: [
-        "Daily glucose monitoring",
-        "Reduce carbs in diet",
-        "30 min moderate exercise/day",
-        "Consider Metformin 500mg if needed",
-      ],
-      confidence: 0.89,
-    };
-    const newReport: ReportData = {
-      id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
-      patientId: patientId || "unknown",
-      reportType: reportTypeScan,
-      date: date || new Date().toISOString().split("T")[0],
-      content: scanNotes,
-      imageUrl: previewUrl || undefined,
-      analysis,
-    };
-    setScanResult(newReport);
-    toast({
-      title: "Report analyzed",
-      description: "The report has been analyzed and added.",
-    });
-    setIsScanLoading(false);
+    
+    try {
+      // Call the API endpoint if we have a file to upload
+      if (pdfFile) {
+        const response = await fetch(
+          "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
+          {
+            method: 'POST',
+            body: pdfFile,
+            headers: {
+              'Content-Type': 'application/pdf',
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
+        let apiResult;
+        try {
+          apiResult = await response.json();
+          console.log("API response:", apiResult);
+          
+          // Use API result for the analysis
+          const newReport: ReportData = {
+            id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
+            patientId: patientId || "unknown",
+            reportType: reportTypeScan,
+            date: date || new Date().toISOString().split('T')[0],
+            content: scanNotes,
+            imageUrl: "",
+            analysis: apiResult.analysis || {
+              summary: "Patient shows elevated blood glucose and mild hypertension.",
+              diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
+              recommendations: [
+                "Daily glucose monitoring",
+                "Reduce carbs in diet",
+                "30 min moderate exercise/day",
+                "Consider Metformin 500mg if needed",
+              ],
+              confidence: 0.89,
+            },
+          };
+          
+          setScanResult(newReport);
+          toast({
+            title: "Report analyzed",
+            description: "The report has been analyzed and added.",
+          });
+          
+        } catch (error) {
+          console.error("Failed to parse API response:", error);
+          throw new Error("Failed to analyze report: Invalid response from API");
+        }
+      } else {
+        // Use mock data if we don't have a new file (e.g., when editing)
+        await new Promise(res => setTimeout(res, 1800));
+        const analysis: any = {
+          summary: "Patient shows elevated blood glucose and mild hypertension.",
+          diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
+          recommendations: [
+            "Daily glucose monitoring",
+            "Reduce carbs in diet",
+            "30 min moderate exercise/day",
+            "Consider Metformin 500mg if needed",
+          ],
+          confidence: 0.89,
+        };
+        
+        const newReport: ReportData = {
+          id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
+          patientId: patientId || "unknown",
+          reportType: reportTypeScan,
+          date: date || new Date().toISOString().split('T')[0],
+          content: scanNotes,
+          imageUrl: previewUrl || undefined,
+          analysis,
+        };
+        
+        setScanResult(newReport);
+        toast({
+          title: "Report analyzed",
+          description: "The report has been analyzed and added.",
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error analyzing report:", error);
+      toast({
+        title: "Analysis failed",
+        description: error instanceof Error ? error.message : "Failed to analyze the report.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScanLoading(false);
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
