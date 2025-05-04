@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { formatDate } from "@/utils/dateUtils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type PatientMap = { [patientId: string]: string };
 
@@ -25,16 +26,31 @@ export default function MedicalRecords() {
   const [patientMap, setPatientMap] = useState<PatientMap>({});
   const { toast } = useToast();
   const [recordToEdit, setRecordToEdit] = useState<MedicalRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     const getPatientMap = async () => {
-      const map = await fetchPatientMap();
-      setPatientMap(map);
+      try {
+        const map = await fetchPatientMap();
+        setPatientMap(map);
+      } catch (error) {
+        console.error("Error fetching patient map:", error);
+        toast({ 
+          title: "Error fetching patients", 
+          description: "Unable to load patient information", 
+          variant: "destructive" 
+        });
+        setHasError(true);
+      }
     };
     getPatientMap();
-  }, []);
+  }, [toast]);
 
   const fetchMedicalRecords = async () => {
+    setIsLoading(true);
+    setHasError(false);
+    
     try {
       const { data, error } = await supabase
         .from("medical_records")
@@ -42,8 +58,13 @@ export default function MedicalRecords() {
         .order("date", { ascending: false });
       
       if (error) {
-        toast({ title: "Error fetching records", description: error.message, variant: "destructive" });
+        toast({ 
+          title: "Error fetching records", 
+          description: error.message, 
+          variant: "destructive" 
+        });
         setRecords([]);
+        setHasError(true);
         return;
       }
       
@@ -87,18 +108,26 @@ export default function MedicalRecords() {
       console.error("Error in fetchMedicalRecords:", fetchError);
       toast({ 
         title: "Failed to fetch records", 
-        description: "An unexpected error occurred", 
+        description: "An unexpected error occurred. Please try again.", 
         variant: "destructive" 
       });
       setRecords([]);
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    // Only fetch records when we have patient data available
     if (Object.keys(patientMap).length > 0) {
       fetchMedicalRecords();
     }
   }, [patientMap]);
+
+  const retryFetch = () => {
+    fetchMedicalRecords();
+  };
 
   const filteredRecords = records.filter(
     (record) =>
@@ -364,13 +393,53 @@ export default function MedicalRecords() {
     setCreateDialogOpen(open);
   };
 
-  return (
-    <div className="space-y-6">
-      <RecordsHeader
-        onScanReport={undefined}
-        onCreateRecord={() => setCreateDialogOpen(true)}
-      />
-      <RecordsSearchFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="space-y-4">
+          <div className="rounded-md border bg-card p-4">
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex items-center gap-4">
+                  <Skeleton className="h-6 w-28" />
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-32" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 text-center border rounded-md bg-muted/10">
+          <h3 className="text-lg font-medium mb-2">Failed to fetch records</h3>
+          <p className="text-muted-foreground mb-4">
+            There was an error loading the medical records. Please try again.
+          </p>
+          <Button onClick={retryFetch}>Retry</Button>
+        </div>
+      );
+    }
+
+    if (records.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 text-center border rounded-md bg-muted/10">
+          <h3 className="text-lg font-medium mb-2">No records found</h3>
+          <p className="text-muted-foreground mb-4">
+            No medical records have been added yet.
+          </p>
+          <Button onClick={() => setCreateDialogOpen(true)}>Add Record</Button>
+        </div>
+      );
+    }
+
+    return (
       <div className="rounded-md border bg-card overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead>
@@ -407,6 +476,20 @@ export default function MedicalRecords() {
           </tbody>
         </table>
       </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <RecordsHeader
+        onScanReport={undefined}
+        onCreateRecord={() => setCreateDialogOpen(true)}
+      />
+      {!isLoading && records.length > 0 && (
+        <RecordsSearchFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      )}
+      
+      {renderContent()}
 
       <CreateEditRecordDialog
         open={createDialogOpen}
