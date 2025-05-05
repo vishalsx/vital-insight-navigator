@@ -140,7 +140,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         toast({
           title: "Warning",
           description: "Received invalid response format. Using default values.",
-          variant: "warning",
+          variant: "destructive",
         });
       }
       
