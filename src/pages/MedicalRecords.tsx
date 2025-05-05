@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
@@ -68,17 +69,34 @@ export default function MedicalRecords() {
         return;
       }
       
-      // Type-safe conversion of data from Supabase
+      // Safely convert data from Supabase with proper type checking
       const mappedRecords: MedicalRecord[] = (data || []).map((rec) => {
-        // Safely extract content from scanned_report if it exists
-        const scannedReport = rec.scanned_report as any; // Use any temporarily to extract values
-        
-        // Default notes to empty string if it doesn't exist in the record
+        // Initialize default empty values
+        let scannedReport: ReportData | undefined = undefined;
         const recordNotes = rec.notes || "";
-        const contentFromReport = scannedReport?.content || "";
         
-        // Use record notes or fallback to content from scannedReport
-        const notes = recordNotes || contentFromReport;
+        // Safely handle scanned_report data
+        if (rec.scanned_report) {
+          const reportData = rec.scanned_report as any;
+          scannedReport = {
+            id: reportData?.id || "",
+            patientId: reportData?.patientId || rec.patient_id,
+            reportType: reportData?.reportType || rec.record_type,
+            date: reportData?.date || rec.date,
+            content: reportData?.content || recordNotes,
+            imageUrl: reportData?.imageUrl || "",
+            analysis: reportData?.analysis ? {
+              summary: reportData.analysis.summary || "",
+              diagnosis: reportData.analysis.diagnosis || "",
+              recommendations: Array.isArray(reportData.analysis.recommendations) 
+                ? reportData.analysis.recommendations 
+                : [],
+              confidence: typeof reportData.analysis.confidence === 'number' 
+                ? reportData.analysis.confidence 
+                : 0
+            } : undefined
+          };
+        }
         
         return {
           id: rec.id,
@@ -89,16 +107,8 @@ export default function MedicalRecords() {
           doctor: rec.doctor || "",
           department: rec.department || "",
           status: rec.status || "",
-          notes: notes,
-          scannedReport: rec.scanned_report ? {
-            id: scannedReport?.id || "",
-            patientId: scannedReport?.patientId || rec.patient_id,
-            reportType: scannedReport?.reportType || rec.record_type,
-            date: scannedReport?.date || rec.date,
-            content: scannedReport?.content || notes,
-            imageUrl: scannedReport?.imageUrl || "",
-            analysis: scannedReport?.analysis
-          } as ReportData : undefined,
+          notes: recordNotes,
+          scannedReport: scannedReport,
         };
       });
       

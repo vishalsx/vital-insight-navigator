@@ -10,6 +10,6 @@ export interface MedicalRecord {
   doctor: string;
   department: string;
   status: string;
-  notes: string;  // Changed from optional to required with default empty string
+  notes: string;  // Required with default empty string
   scannedReport?: ReportData;
 }
