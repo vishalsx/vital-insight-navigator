@@ -101,8 +101,55 @@ const ScanReportForm = ({
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
       
-      const result = await response.json();
-      console.log("API response:", result);
+      // Handle potential JSON parsing errors
+      let result;
+      const responseText = await response.text();
+      
+      try {
+        // Try to parse as JSON
+        result = JSON.parse(responseText);
+        console.log("API response parsed:", result);
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
+        // Create a default result structure if parsing fails
+        result = {
+          analysis: {
+            summary: "Error parsing API response. Using default values.",
+            diagnosis: "Unable to determine diagnosis from report.",
+            recommendations: ["Please review this report manually."],
+            confidence: 0.5
+          }
+        };
+        
+        // Show a warning but continue with the mock data
+        toast({
+          title: "Warning",
+          description: "Received invalid response format. Using default values.",
+          variant: "destructive",
+        });
+      }
+      
+      // Ensure result has the correct structure
+      if (!result.analysis) {
+        result.analysis = {
+          summary: "No analysis provided in response. Using default values.",
+          diagnosis: "Unable to determine diagnosis from report.",
+          recommendations: ["Please review this report manually."],
+          confidence: 0.5
+        };
+      }
+      
+      // Ensure recommendations is an array
+      if (!Array.isArray(result.analysis.recommendations)) {
+        result.analysis.recommendations = [result.analysis.recommendations || "Please review this report manually."];
+      }
+      
+      // Ensure confidence is a number
+      if (typeof result.analysis.confidence !== 'number') {
+        result.analysis.confidence = 0.5;
+      }
+      
+      console.log("Final processed result:", result);
       
       // Call the parent's onAnalyzeReport to update the state
       onAnalyzeReport();
@@ -198,13 +245,13 @@ const ScanReportForm = ({
             <div>
               <strong>Recommendations:</strong>
               <ul className="list-disc ml-6">
-                {scanResult.analysis?.recommendations.map((rec, idx) => (
+                {scanResult.analysis?.recommendations?.map((rec, idx) => (
                   <li key={idx}>{rec}</li>
                 ))}
               </ul>
             </div>
             <div className="text-xs text-right mt-2 opacity-70">
-              Confidence: {(scanResult.analysis?.confidence ?? 0 * 100).toFixed(0)}%
+              Confidence: {scanResult.analysis?.confidence ? Math.round(scanResult.analysis.confidence * 100) : 0}%
             </div>
           </CardContent>
         </Card>

@@ -173,42 +173,78 @@ const CreateEditRecordDialog = ({
           throw new Error(`API Error: ${response.status} ${response.statusText}`);
         }
         
+        // Handle potential JSON parsing errors
         let apiResult;
+        const responseText = await response.text();
+        
         try {
-          apiResult = await response.json();
-          console.log("API response:", apiResult);
+          // Try to parse as JSON
+          apiResult = JSON.parse(responseText);
+          console.log("API response parsed:", apiResult);
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
           
-          // Use API result for the analysis
-          const newReport: ReportData = {
-            id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
-            patientId: patientId || "unknown",
-            reportType: reportTypeScan,
-            date: date || new Date().toISOString().split('T')[0],
-            content: scanNotes,
-            imageUrl: "",
-            analysis: apiResult.analysis || {
-              summary: "Patient shows elevated blood glucose and mild hypertension.",
-              diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
-              recommendations: [
-                "Daily glucose monitoring",
-                "Reduce carbs in diet",
-                "30 min moderate exercise/day",
-                "Consider Metformin 500mg if needed",
-              ],
-              confidence: 0.89,
-            },
+          // Create a default analysis structure if parsing fails
+          apiResult = {
+            analysis: {
+              summary: "Patient data analysis could not be parsed. Using default values.",
+              diagnosis: "Manual review required - parsing error in response.",
+              recommendations: ["Review report manually", "Consult with specialist if needed"],
+              confidence: 0.5
+            }
           };
           
-          setScanResult(newReport);
           toast({
-            title: "Report analyzed",
-            description: "The report has been analyzed and added.",
+            title: "Warning",
+            description: "Received invalid response format. Using default values.",
+            variant: "warning",
           });
-          
-        } catch (error) {
-          console.error("Failed to parse API response:", error);
-          throw new Error("Failed to analyze report: Invalid response from API");
         }
+        
+        // Ensure analysis property exists
+        if (!apiResult.analysis) {
+          apiResult.analysis = {
+            summary: "No analysis data returned. Using default values.",
+            diagnosis: "Manual review required - no analysis in response.",
+            recommendations: ["Review report manually", "Consult with specialist if needed"],
+            confidence: 0.5
+          };
+        }
+        
+        // Ensure recommendations is an array
+        if (!Array.isArray(apiResult.analysis.recommendations)) {
+          apiResult.analysis.recommendations = apiResult.analysis.recommendations 
+            ? [apiResult.analysis.recommendations] 
+            : ["Review report manually"];
+        }
+        
+        // Ensure confidence is a number
+        if (typeof apiResult.analysis.confidence !== 'number') {
+          apiResult.analysis.confidence = 0.5;
+        }
+        
+        // Create the report with validated data
+        const newReport: ReportData = {
+          id: recordToEdit?.scannedReport?.id || `REC-${Date.now().toString().slice(-6)}`,
+          patientId: patientId || "unknown",
+          reportType: reportTypeScan,
+          date: date || new Date().toISOString().split('T')[0],
+          content: scanNotes,
+          imageUrl: "",
+          analysis: {
+            summary: apiResult.analysis.summary || "No summary provided",
+            diagnosis: apiResult.analysis.diagnosis || "No diagnosis provided",
+            recommendations: apiResult.analysis.recommendations,
+            confidence: apiResult.analysis.confidence
+          },
+        };
+        
+        setScanResult(newReport);
+        toast({
+          title: "Report analyzed",
+          description: "The report has been analyzed and added.",
+        });
+        
       } else {
         // Use mock data if we don't have a new file (e.g., when editing)
         await new Promise(res => setTimeout(res, 1800));

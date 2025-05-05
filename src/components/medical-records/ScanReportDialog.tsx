@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -126,18 +125,27 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
       
-      let apiResult;
+      // Handle potential JSON parsing errors
+      let result;
+      const responseText = await response.text();
+      
       try {
-        apiResult = await response.json();
-        console.log("API response:", apiResult);
-      } catch (error) {
-        console.error("Failed to parse API response:", error);
-        // If API response isn't valid JSON, use mock data
-        apiResult = null;
+        // Try to parse as JSON
+        result = JSON.parse(responseText);
+        console.log("API response parsed:", result);
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
+        // Use mock data if parsing fails
+        result = null;
+        toast({
+          title: "Warning",
+          description: "Received invalid response format. Using default values.",
+          variant: "warning",
+        });
       }
       
       // Use API result if available, otherwise use mock data
-      const analysisResult: ReportAnalysis = apiResult?.analysis || {
+      const analysisResult: ReportAnalysis = result?.analysis || {
         summary: "Patient shows elevated blood glucose levels and mild hypertension.",
         diagnosis: "Type 2 Diabetes Mellitus (E11.9) with early signs of hypertension (I10).",
         recommendations: [
@@ -148,6 +156,16 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         ],
         confidence: 0.89,
       };
+
+      // Ensure recommendations is an array
+      if (!Array.isArray(analysisResult.recommendations)) {
+        analysisResult.recommendations = [analysisResult.recommendations || "Please review manually"];
+      }
+      
+      // Ensure confidence is a number
+      if (typeof analysisResult.confidence !== 'number') {
+        analysisResult.confidence = 0.5;
+      }
 
       const newReport: ReportData = {
         id: `REC-${Date.now().toString().slice(-6)}`,
