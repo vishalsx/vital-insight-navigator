@@ -7,7 +7,7 @@ import RecordsTable from "@/components/medical-records/RecordsTable";
 import ScanReportDialog, { ReportData } from "@/components/medical-records/ScanReportDialog";
 import ViewReportDialog from "@/components/medical-records/ViewReportDialog";
 import CreateEditRecordDialog from "@/components/medical-records/CreateEditRecordDialog";
-import { MedicalRecord } from "@/types/medicalRecords";
+import { MedicalRecord, RawScannedReport } from "@/types/medicalRecords";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchPatientMap } from "@/supabasePatients";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,12 @@ export default function MedicalRecords() {
     try {
       console.log("Processing scanned report data:", JSON.stringify(rawData));
       
+      // Safely access potentially non-object data
+      if (typeof rawData !== 'object' || rawData === null) {
+        console.error("Invalid scanned report format, expected object but got:", typeof rawData);
+        return undefined;
+      }
+      
       // Create a normalized report object with default values for missing fields
       const normalizedReport: ReportData = {
         id: rawData?.id || `default-id-${Date.now()}`,
@@ -67,7 +73,7 @@ export default function MedicalRecords() {
       };
       
       // Handle analysis object if it exists
-      if (rawData?.analysis) {
+      if (rawData?.analysis && typeof rawData.analysis === 'object') {
         normalizedReport.analysis = {
           summary: rawData.analysis?.summary || "",
           diagnosis: rawData.analysis?.diagnosis || "",
@@ -126,16 +132,26 @@ export default function MedicalRecords() {
           let scannedReport: ReportData | undefined = undefined;
           
           if (rec.scanned_report) {
-            // Get patient ID and record type from the main record as fallbacks
-            const reportData = {
-              ...rec.scanned_report,
-              patientId: rec.scanned_report?.patientId || rec.patient_id,
-              reportType: rec.scanned_report?.reportType || rec.record_type,
-              date: rec.scanned_report?.date || rec.date,
-              content: rec.scanned_report?.content || recordNotes
-            };
-            
-            scannedReport = normalizeScannedReport(reportData);
+            try {
+              // Cast to our internal type to handle the raw JSON data
+              const rawReport: RawScannedReport = typeof rec.scanned_report === 'object' ? rec.scanned_report : {};
+              
+              // Get patient ID and record type from the main record as fallbacks
+              const reportData = {
+                id: rawReport.id,
+                patientId: rawReport.patientId || rec.patient_id,
+                reportType: rawReport.reportType || rec.record_type,
+                date: rawReport.date || rec.date,
+                content: rawReport.content || recordNotes,
+                imageUrl: rawReport.imageUrl,
+                analysis: rawReport.analysis
+              };
+              
+              scannedReport = normalizeScannedReport(reportData);
+            } catch (reportError) {
+              console.error("Error processing scanned_report for record:", rec.id, reportError);
+              // Continue with undefined scannedReport
+            }
           }
           
           return {

@@ -13,3 +13,19 @@ export interface MedicalRecord {
   notes: string;  // Required with default empty string
   scannedReport?: ReportData;
 }
+
+// Type for raw data coming from Supabase JSON columns
+export interface RawScannedReport {
+  id?: string;
+  patientId?: string;
+  reportType?: string;
+  date?: string;
+  content?: string;
+  imageUrl?: string;
+  analysis?: {
+    summary?: string;
+    diagnosis?: string;
+    recommendations?: string[] | string;
+    confidence?: number;
+  };
+}
