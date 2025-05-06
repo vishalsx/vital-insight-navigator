@@ -133,12 +133,37 @@ export default function MedicalRecords() {
           
           if (rec.scanned_report) {
             try {
-              // Cast to our internal type to handle the raw JSON data
-              const rawReport: RawScannedReport = typeof rec.scanned_report === 'object' ? rec.scanned_report : {};
+              // Safely handle the scanned_report JSON by creating a plain object that matches our type
+              // instead of trying to directly cast the JSON to our type
+              const rawReport: Record<string, any> = {}; 
+              
+              // Only extract properties if scanned_report is an object
+              if (typeof rec.scanned_report === 'object' && rec.scanned_report !== null) {
+                const sr = rec.scanned_report as Record<string, any>; // Type assertion for accessing properties
+                
+                // Extract properties one by one
+                if ('id' in sr) rawReport.id = sr.id;
+                if ('patientId' in sr) rawReport.patientId = sr.patientId;
+                if ('reportType' in sr) rawReport.reportType = sr.reportType;
+                if ('date' in sr) rawReport.date = sr.date;
+                if ('content' in sr) rawReport.content = sr.content;
+                if ('imageUrl' in sr) rawReport.imageUrl = sr.imageUrl;
+                
+                // Handle analysis object separately
+                if ('analysis' in sr && typeof sr.analysis === 'object' && sr.analysis !== null) {
+                  rawReport.analysis = {};
+                  const analysis = sr.analysis as Record<string, any>;
+                  
+                  if ('summary' in analysis) rawReport.analysis.summary = analysis.summary;
+                  if ('diagnosis' in analysis) rawReport.analysis.diagnosis = analysis.diagnosis;
+                  if ('recommendations' in analysis) rawReport.analysis.recommendations = analysis.recommendations;
+                  if ('confidence' in analysis) rawReport.analysis.confidence = analysis.confidence;
+                }
+              }
               
               // Get patient ID and record type from the main record as fallbacks
               const reportData = {
-                id: rawReport.id,
+                id: rawReport.id || `default-id-${Date.now()}`,
                 patientId: rawReport.patientId || rec.patient_id,
                 reportType: rawReport.reportType || rec.record_type,
                 date: rawReport.date || rec.date,
