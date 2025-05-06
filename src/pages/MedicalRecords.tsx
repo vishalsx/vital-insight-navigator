@@ -48,17 +48,62 @@ export default function MedicalRecords() {
     getPatientMap();
   }, [toast]);
 
+  // Helper function to validate and normalize scanned report data
+  const normalizeScannedReport = (rawData: any): ReportData | undefined => {
+    if (!rawData) return undefined;
+    
+    try {
+      console.log("Processing scanned report data:", JSON.stringify(rawData));
+      
+      // Create a normalized report object with default values for missing fields
+      const normalizedReport: ReportData = {
+        id: rawData?.id || `default-id-${Date.now()}`,
+        patientId: rawData?.patientId || "",
+        reportType: rawData?.reportType || "",
+        date: rawData?.date || new Date().toISOString().split('T')[0],
+        content: rawData?.content || "",
+        imageUrl: rawData?.imageUrl || "",
+        analysis: undefined  // Default to undefined, will normalize below if exists
+      };
+      
+      // Handle analysis object if it exists
+      if (rawData?.analysis) {
+        normalizedReport.analysis = {
+          summary: rawData.analysis?.summary || "",
+          diagnosis: rawData.analysis?.diagnosis || "",
+          // Ensure recommendations is always an array
+          recommendations: Array.isArray(rawData.analysis?.recommendations)
+            ? rawData.analysis.recommendations
+            : rawData.analysis?.recommendations
+              ? [String(rawData.analysis.recommendations)]
+              : [],
+          // Ensure confidence is a number between 0-1
+          confidence: typeof rawData.analysis?.confidence === 'number'
+            ? rawData.analysis.confidence
+            : 0
+        };
+      }
+      
+      return normalizedReport;
+    } catch (parseError) {
+      console.error("Error normalizing scanned report:", parseError);
+      return undefined;
+    }
+  };
+
   const fetchMedicalRecords = async () => {
     setIsLoading(true);
     setHasError(false);
     
     try {
+      console.log("Fetching medical records...");
       const { data, error } = await supabase
         .from("medical_records")
         .select("*")
         .order("date", { ascending: false });
       
       if (error) {
+        console.error("Supabase error:", error);
         toast({ 
           title: "Error fetching records", 
           description: error.message, 
@@ -69,56 +114,68 @@ export default function MedicalRecords() {
         return;
       }
       
+      console.log(`Fetched ${data?.length || 0} medical records`);
+      
       // Safely convert data from Supabase with proper type checking
       const mappedRecords: MedicalRecord[] = (data || []).map((rec) => {
-        // Initialize default empty values
-        let scannedReport: ReportData | undefined = undefined;
-        const recordNotes = rec.notes || "";
-        
-        // Safely handle scanned_report data
-        if (rec.scanned_report) {
-          const reportData = rec.scanned_report as any;
-          scannedReport = {
-            id: reportData?.id || "",
-            patientId: reportData?.patientId || rec.patient_id,
-            reportType: reportData?.reportType || rec.record_type,
-            date: reportData?.date || rec.date,
-            content: reportData?.content || recordNotes,
-            imageUrl: reportData?.imageUrl || "",
-            analysis: reportData?.analysis ? {
-              summary: reportData.analysis.summary || "",
-              diagnosis: reportData.analysis.diagnosis || "",
-              recommendations: Array.isArray(reportData.analysis.recommendations) 
-                ? reportData.analysis.recommendations 
-                : [],
-              confidence: typeof reportData.analysis.confidence === 'number' 
-                ? reportData.analysis.confidence 
-                : 0
-            } : undefined
+        try {
+          // Initialize default empty values
+          const recordNotes = rec.notes || "";
+          
+          // Safely handle scanned_report data with the normalizer
+          let scannedReport: ReportData | undefined = undefined;
+          
+          if (rec.scanned_report) {
+            // Get patient ID and record type from the main record as fallbacks
+            const reportData = {
+              ...rec.scanned_report,
+              patientId: rec.scanned_report?.patientId || rec.patient_id,
+              reportType: rec.scanned_report?.reportType || rec.record_type,
+              date: rec.scanned_report?.date || rec.date,
+              content: rec.scanned_report?.content || recordNotes
+            };
+            
+            scannedReport = normalizeScannedReport(reportData);
+          }
+          
+          return {
+            id: rec.id,
+            patientId: rec.patient_id,
+            patientName: patientMap[rec.patient_id] || "Unknown Patient",
+            recordType: rec.record_type,
+            date: rec.date,
+            doctor: rec.doctor || "",
+            department: rec.department || "",
+            status: rec.status || "",
+            notes: recordNotes,
+            scannedReport: scannedReport,
+          };
+        } catch (recordError) {
+          console.error("Error processing record:", rec.id, recordError);
+          
+          // Return a simplified record when there's an error processing the data
+          return {
+            id: rec.id,
+            patientId: rec.patient_id,
+            patientName: patientMap[rec.patient_id] || "Unknown Patient",
+            recordType: rec.record_type || "Unknown Type",
+            date: rec.date,
+            doctor: rec.doctor || "",
+            department: rec.department || "",
+            status: "Error", // Mark records with processing errors
+            notes: "Error processing record data",
+            // No scanned report for error cases
           };
         }
-        
-        return {
-          id: rec.id,
-          patientId: rec.patient_id,
-          patientName: patientMap[rec.patient_id] || "Unknown Patient",
-          recordType: rec.record_type,
-          date: rec.date,
-          doctor: rec.doctor || "",
-          department: rec.department || "",
-          status: rec.status || "",
-          notes: recordNotes,
-          scannedReport: scannedReport,
-        };
       });
       
       setRecords(mappedRecords);
-      console.log("Fetched records:", mappedRecords);
+      console.log("Processed records successfully:", mappedRecords.length);
     } catch (fetchError) {
       console.error("Error in fetchMedicalRecords:", fetchError);
       toast({ 
         title: "Failed to fetch records", 
-        description: "An unexpected error occurred. Please try again.", 
+        description: `Unexpected error: ${fetchError instanceof Error ? fetchError.message : "Unknown error"}`, 
         variant: "destructive" 
       });
       setRecords([]);
