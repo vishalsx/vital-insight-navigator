@@ -97,57 +97,68 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
   const parseWebhookResponse = (responseText: string): MedicalRecommendation | null => {
     try {
-      // First, try to parse the entire text as JSON
-      let webhookData: WebhookRecommendationResponse;
+      console.log("Attempting to parse webhook response:", responseText);
+      
+      // First try to parse the entire text as JSON
+      let webhookData: WebhookRecommendationResponse | null = null;
       
       try {
         webhookData = JSON.parse(responseText);
+        console.log("Successfully parsed entire response as JSON:", webhookData);
       } catch (e) {
-        // If it's not valid JSON, try to find and extract a JSON object
+        console.error("Failed to parse entire response as JSON:", e);
+        // Try to find and extract a JSON object
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) return null;
-        
-        webhookData = JSON.parse(jsonMatch[0]);
+        if (jsonMatch) {
+          try {
+            webhookData = JSON.parse(jsonMatch[0]);
+            console.log("Successfully extracted and parsed JSON object from response:", webhookData);
+          } catch (innerE) {
+            console.error("Failed to parse extracted JSON object:", innerE);
+          }
+        } else {
+          console.error("No JSON object found in response");
+        }
       }
       
-      // Debug the parsed webhook data
-      console.log("Parsed webhook data:", webhookData);
+      if (!webhookData) {
+        console.error("Could not parse webhook data");
+        return null;
+      }
       
-      // Extract the recommendation output
+      // Extract the recommendation output if it exists
       if (webhookData.recommendation?.output) {
         const outputStr = webhookData.recommendation.output;
-        console.log("Raw recommendation output:", outputStr);
+        console.log("Recommendation output string:", outputStr);
         
-        // Look for JSON in the output string
-        // First, try to find a JSON block that might be prefixed with "json" or something similar
-        let jsonMatch = outputStr.match(/json\s*(\{[\s\S]*\})/i);
-        
-        if (jsonMatch && jsonMatch[1]) {
-          // Extract just the JSON part
+        // Try to extract JSON from markdown code block
+        const jsonBlockMatch = outputStr.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
           try {
-            const recommendation = JSON.parse(jsonMatch[1]);
-            console.log("Successfully parsed recommendation from JSON block:", recommendation);
+            const recommendation = JSON.parse(jsonBlockMatch[1]);
+            console.log("Successfully parsed JSON from code block:", recommendation);
             return recommendation;
           } catch (e) {
-            console.error("Failed to parse recommendation from JSON block:", e);
+            console.error("Failed to parse JSON from code block:", e);
           }
         }
         
-        // If that fails, try to find any JSON object in the output
-        jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
+        // Try to extract any JSON object from the output
+        const jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
         if (jsonMatch && jsonMatch[1]) {
           try {
             const recommendation = JSON.parse(jsonMatch[1]);
-            console.log("Successfully parsed recommendation from detected JSON:", recommendation);
+            console.log("Successfully parsed JSON directly from output:", recommendation);
             return recommendation;
           } catch (e) {
-            console.error("Failed to parse detected JSON:", e);
+            console.error("Failed to parse JSON directly from output:", e);
           }
         }
       }
       
-      // If we already have a recommendation object directly in the response
-      if (webhookData.recommendation && typeof webhookData.recommendation === 'object' && 
+      // Check if the recommendation is already an object
+      if (webhookData.recommendation && 
+          typeof webhookData.recommendation === 'object' && 
           !webhookData.recommendation.output) {
         console.log("Found recommendation object directly:", webhookData.recommendation);
         return webhookData.recommendation as unknown as MedicalRecommendation;
@@ -188,6 +199,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       
       // Process webhook response if provided
       if (webhookResponse) {
+        console.log("Processing webhook response text:", webhookResponse);
         recommendation = parseWebhookResponse(webhookResponse);
         if (recommendation) {
           console.log("Parsed webhook recommendation:", recommendation);
