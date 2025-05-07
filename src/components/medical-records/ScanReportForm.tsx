@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,6 +103,7 @@ const ScanReportForm = ({
       // Handle potential JSON parsing errors
       let result;
       const responseText = await response.text();
+      console.log("Raw API response:", responseText); // Add this for debugging
       
       try {
         // Try to parse as JSON

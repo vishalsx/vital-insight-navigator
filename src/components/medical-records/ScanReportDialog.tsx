@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -98,8 +97,9 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
   const parseWebhookResponse = (responseText: string): MedicalRecommendation | null => {
     try {
-      // Try to parse the entire text as a webhook response
+      // First, try to parse the entire text as JSON
       let webhookData: WebhookRecommendationResponse;
+      
       try {
         webhookData = JSON.parse(responseText);
       } catch (e) {
@@ -110,15 +110,50 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         webhookData = JSON.parse(jsonMatch[0]);
       }
       
+      // Debug the parsed webhook data
+      console.log("Parsed webhook data:", webhookData);
+      
       // Extract the recommendation output
       if (webhookData.recommendation?.output) {
-        // Find the JSON object within the output string
-        const jsonMatch = webhookData.recommendation.output.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
+        const outputStr = webhookData.recommendation.output;
+        console.log("Raw recommendation output:", outputStr);
+        
+        // Look for JSON in the output string
+        // First, try to find a JSON block that might be prefixed with "json" or something similar
+        let jsonMatch = outputStr.match(/json\s*(\{[\s\S]*\})/i);
+        
+        if (jsonMatch && jsonMatch[1]) {
+          // Extract just the JSON part
+          try {
+            const recommendation = JSON.parse(jsonMatch[1]);
+            console.log("Successfully parsed recommendation from JSON block:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("Failed to parse recommendation from JSON block:", e);
+          }
+        }
+        
+        // If that fails, try to find any JSON object in the output
+        jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonMatch[1]);
+            console.log("Successfully parsed recommendation from detected JSON:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("Failed to parse detected JSON:", e);
+          }
         }
       }
       
+      // If we already have a recommendation object directly in the response
+      if (webhookData.recommendation && typeof webhookData.recommendation === 'object' && 
+          !webhookData.recommendation.output) {
+        console.log("Found recommendation object directly:", webhookData.recommendation);
+        return webhookData.recommendation as unknown as MedicalRecommendation;
+      }
+      
+      console.error("Could not find valid recommendation data in the webhook response");
       return null;
     } catch (error) {
       console.error("Failed to parse webhook response:", error);
