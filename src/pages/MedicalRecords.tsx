@@ -1,11 +1,13 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
 import RecordsSearchFilters from "@/components/medical-records/RecordsSearchFilters";
 import RecordsContent from "@/components/medical-records/RecordsContent";
 import CreateEditRecordDialog from "@/components/medical-records/CreateEditRecordDialog";
 import ViewReportDialog from "@/components/medical-records/ViewReportDialog";
+import ScanReportDialog from "@/components/medical-records/ScanReportDialog";
 import { useMedicalRecords } from "@/hooks/useMedicalRecords";
+import { ReportData } from "@/components/medical-records/ScanReportDialog";
 
 export default function MedicalRecords() {
   const {
@@ -31,10 +33,30 @@ export default function MedicalRecords() {
     setCreateDialogOpen,
   } = useMedicalRecords();
 
+  const [scanReportDialogOpen, setScanReportDialogOpen] = useState(false);
+
+  const handleScanComplete = (reportData: ReportData) => {
+    // Convert the scanned report data to a medical record format and create it
+    const newRecord = {
+      id: reportData.id,
+      patientId: reportData.patientId,
+      patientName: patientMap[reportData.patientId]?.name || "Unknown Patient",
+      recordType: reportData.reportType,
+      date: reportData.date,
+      doctor: "",  // These fields could be filled from the reportData if available
+      department: "",
+      status: "New",
+      notes: reportData.content || "",
+      scannedReport: reportData
+    };
+    
+    handleCreateRecord(newRecord);
+  };
+
   return (
     <div className="space-y-6">
       <RecordsHeader
-        onScanReport={undefined}
+        onScanReport={() => setScanReportDialogOpen(true)}
         onCreateRecord={() => setCreateDialogOpen(true)}
       />
       {!isLoading && records.length > 0 && (
@@ -65,6 +87,12 @@ export default function MedicalRecords() {
         open={viewReportDialogOpen}
         onOpenChange={setViewReportDialogOpen}
         record={selectedRecord}
+      />
+
+      <ScanReportDialog 
+        open={scanReportDialogOpen}
+        onOpenChange={setScanReportDialogOpen}
+        onScanComplete={handleScanComplete}
       />
     </div>
   );

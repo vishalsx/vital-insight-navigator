@@ -29,3 +29,25 @@ export interface RawScannedReport {
     confidence?: number;
   };
 }
+
+// New interfaces for the webhook response data
+export interface WebhookRecommendationResponse {
+  recommendation?: {
+    output?: string;
+  };
+}
+
+export interface MedicalRecommendation {
+  patient_id?: string;
+  patient_age?: string;
+  patient_sex?: string;
+  primary_diagnosis?: string;
+  supporting_evidence?: Record<string, string>;
+  recommendations?: {
+    further_tests?: string[];
+    medications?: string[];
+    lifestyle_advice?: string[];
+    follow_up?: string;
+  };
+  additional_notes?: string;
+}

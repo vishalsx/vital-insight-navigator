@@ -1,14 +1,15 @@
 
-import React, { useRef } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Printer, Share2, AlertCircle, FileText, User, Calendar, UserRound, Building, ClipboardList, FileInput } from "lucide-react";
 import { ReportData } from "./ScanReportDialog";
 import ReportAnalysisCard from "./ReportAnalysisCard";
 import { formatDate } from "@/utils/dateUtils";
-import { MedicalRecord } from "@/types/medicalRecords";
+import { MedicalRecord, MedicalRecommendation, WebhookRecommendationResponse } from "@/types/medicalRecords";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import RecommendationsCard from "./RecommendationsCard";
 
 interface ViewReportDialogProps {
   open: boolean;
@@ -19,6 +20,65 @@ interface ViewReportDialogProps {
 const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps) => {
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
+  const [recommendation, setRecommendation] = useState<MedicalRecommendation | null>(null);
+  
+  useEffect(() => {
+    if (record && open) {
+      // Try to parse recommendation data if it exists
+      try {
+        // Check for webhook data first (try to parse it from notes or other fields)
+        const notesContent = record.notes || '';
+        if (notesContent.includes('"recommendation"') || notesContent.includes('"output"')) {
+          try {
+            // Try to parse the entire notes as a webhook response
+            const webhookData: WebhookRecommendationResponse = JSON.parse(notesContent);
+            if (webhookData.recommendation?.output) {
+              // Find the JSON object within the output string
+              const jsonMatch = webhookData.recommendation.output.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                const recommendationData: MedicalRecommendation = JSON.parse(jsonMatch[0]);
+                setRecommendation(recommendationData);
+                return;
+              }
+            }
+          } catch (err) {
+            console.error("Failed to parse webhook data from notes:", err);
+          }
+        }
+        
+        // Next check if the record might have scannedReport with analysis
+        if (record.scannedReport?.analysis) {
+          // Map the analysis data to the recommendation format if possible
+          const analysis = record.scannedReport.analysis;
+          
+          // Check if recommendations is just a string
+          let formattedRecommendations: string[] = [];
+          if (typeof analysis.recommendations === 'string') {
+            formattedRecommendations = [analysis.recommendations];
+          } else if (Array.isArray(analysis.recommendations)) {
+            formattedRecommendations = analysis.recommendations;
+          }
+
+          // Create a simple recommendation object from the analysis
+          const recommendationFromAnalysis: MedicalRecommendation = {
+            primary_diagnosis: analysis.diagnosis,
+            additional_notes: analysis.summary,
+            recommendations: {
+              further_tests: formattedRecommendations,
+              follow_up: "Please consult with your healthcare provider"
+            }
+          };
+          
+          setRecommendation(recommendationFromAnalysis);
+        } else {
+          setRecommendation(null);
+        }
+      } catch (error) {
+        console.error("Error processing recommendation data:", error);
+        setRecommendation(null);
+      }
+    }
+  }, [record, open]);
   
   // If there's no record data, render an appropriate message
   if (!record) {
@@ -334,6 +394,14 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
                 </div>
               </div>
             </div>
+
+            {/* Medical Recommendations Section */}
+            {recommendation && (
+              <div className="border rounded-md p-4">
+                <h3 className="text-lg font-medium mb-4">Medical Recommendations</h3>
+                <RecommendationsCard recommendation={recommendation} />
+              </div>
+            )}
 
             {/* Notes section - display notes from either source */}
             <div className="border rounded-md p-4">

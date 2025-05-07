@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -9,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText, Camera, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MedicalRecommendation, WebhookRecommendationResponse } from "@/types/medicalRecords";
 
 interface ScanReportDialogProps {
   open: boolean;
@@ -24,6 +26,7 @@ export interface ReportData {
   content: string;
   imageUrl?: string;
   analysis?: ReportAnalysis;
+  recommendation?: MedicalRecommendation;
 }
 
 export interface ReportAnalysis {
@@ -42,6 +45,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
+  const [webhookResponse, setWebhookResponse] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,6 +63,10 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       setPdfFile(file);
       setPreviewUrl(""); // Just to indicate a file is selected
     }
+  };
+
+  const handleWebhookResponseChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setWebhookResponse(e.target.value);
   };
 
   const captureImage = async () => {
@@ -84,7 +92,38 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
     setPdfFile(null);
     setPreviewUrl(null);
     setNotes("");
+    setWebhookResponse("");
     setIsLoading(false);
+  };
+
+  const parseWebhookResponse = (responseText: string): MedicalRecommendation | null => {
+    try {
+      // Try to parse the entire text as a webhook response
+      let webhookData: WebhookRecommendationResponse;
+      try {
+        webhookData = JSON.parse(responseText);
+      } catch (e) {
+        // If it's not valid JSON, try to find and extract a JSON object
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+        
+        webhookData = JSON.parse(jsonMatch[0]);
+      }
+      
+      // Extract the recommendation output
+      if (webhookData.recommendation?.output) {
+        // Find the JSON object within the output string
+        const jsonMatch = webhookData.recommendation.output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Failed to parse webhook response:", error);
+      return null;
+    }
   };
 
   const processReport = async () => {
@@ -97,10 +136,10 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       return;
     }
 
-    if (!pdfFile) {
+    if (!pdfFile && !webhookResponse) {
       toast({
-        title: "No PDF file selected",
-        description: "Please upload a PDF file of the report.",
+        title: "No data to process",
+        description: "Please upload a PDF file or paste webhook response data.",
         variant: "destructive",
       });
       return;
@@ -109,39 +148,57 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
     setIsLoading(true);
 
     try {
-      // Call the API endpoint
-      const response = await fetch(
-        "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
-        {
-          method: 'POST',
-          body: pdfFile,
-          headers: {
-            'Content-Type': 'application/pdf',
-          }
+      let result = null;
+      let recommendation: MedicalRecommendation | null = null;
+      
+      // Process webhook response if provided
+      if (webhookResponse) {
+        recommendation = parseWebhookResponse(webhookResponse);
+        if (recommendation) {
+          console.log("Parsed webhook recommendation:", recommendation);
+        } else {
+          toast({
+            title: "Warning",
+            description: "Could not parse webhook response. Please check the format.",
+            variant: "destructive",
+          });
         }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
-      
-      // Handle potential JSON parsing errors
-      let result;
-      const responseText = await response.text();
-      
-      try {
-        // Try to parse as JSON
-        result = JSON.parse(responseText);
-        console.log("API response parsed:", result);
-      } catch (parseError) {
-        console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
-        // Use mock data if parsing fails
-        result = null;
-        toast({
-          title: "Warning",
-          description: "Received invalid response format. Using default values.",
-          variant: "destructive",
-        });
+      // Process PDF file if provided and no webhook response was parsed
+      else if (pdfFile) {
+        // Call the API endpoint
+        const response = await fetch(
+          "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
+          {
+            method: 'POST',
+            body: pdfFile,
+            headers: {
+              'Content-Type': 'application/pdf',
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
+        // Handle potential JSON parsing errors
+        const responseText = await response.text();
+        
+        try {
+          // Try to parse as JSON
+          result = JSON.parse(responseText);
+          console.log("API response parsed:", result);
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
+          // Use mock data if parsing fails
+          result = null;
+          toast({
+            title: "Warning",
+            description: "Received invalid response format. Using default values.",
+            variant: "destructive",
+          });
+        }
       }
       
       // Use API result if available, otherwise use mock data
@@ -169,12 +226,13 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
       const newReport: ReportData = {
         id: `REC-${Date.now().toString().slice(-6)}`,
-        patientId: id || "unknown",
+        patientId: id || recommendation?.patient_id || "unknown",
         reportType: reportType,
         date: new Date().toISOString().split('T')[0],
-        content: notes,
+        content: notes || (webhookResponse ? webhookResponse : ''),
         imageUrl: '', // No image URL for PDF
         analysis: analysisResult,
+        recommendation: recommendation,
       };
 
       if (onScanComplete) {
@@ -183,7 +241,9 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
       toast({
         title: "Report processed successfully",
-        description: "The PDF report has been analyzed and added to the patient's records.",
+        description: recommendation 
+          ? "The webhook data has been processed and added to the record." 
+          : "The PDF report has been analyzed and added to the patient's records.",
       });
 
       resetForm();
@@ -211,7 +271,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2">
+          <TabsList className="grid grid-cols-3">
             <TabsTrigger value="upload">
               <Upload className="h-4 w-4 mr-2" />
               Upload
@@ -219,6 +279,10 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
             <TabsTrigger value="scan">
               <Camera className="h-4 w-4 mr-2" />
               Scan
+            </TabsTrigger>
+            <TabsTrigger value="webhook">
+              <FileText className="h-4 w-4 mr-2" />
+              Webhook Data
             </TabsTrigger>
           </TabsList>
 
@@ -332,6 +396,42 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="webhook" className="space-y-4">
+            <div className="grid gap-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="webhookReportType" className="text-right">
+                  Report Type
+                </Label>
+                <Input
+                  id="webhookReportType"
+                  placeholder="Lab Result, Blood Test, etc."
+                  className="col-span-3"
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="webhookResponse" className="text-right pt-2">
+                  Webhook Response
+                </Label>
+                <div className="col-span-3">
+                  <Textarea
+                    id="webhookResponse"
+                    placeholder="Paste the webhook response JSON here"
+                    className="font-mono text-xs"
+                    value={webhookResponse}
+                    onChange={handleWebhookResponseChange}
+                    rows={10}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Paste the entire webhook response including the recommendation and output fields
+                  </p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
         <DialogFooter>
@@ -347,7 +447,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
             ) : (
               <>
                 <FileText className="h-4 w-4 mr-2" />
-                Analyze Report
+                {activeTab === "webhook" ? "Process Data" : "Analyze Report"}
               </>
             )}
           </Button>
