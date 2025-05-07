@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +7,7 @@ import {
   CalendarCheck, 
   UserPlus, 
   ListChecks, 
-  Medication 
+  Pill 
 } from "lucide-react";
 import { MedicalRecommendation } from "@/types/medicalRecords";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -120,7 +119,7 @@ const RecommendationsCard = ({ recommendation, showPatientInfo = true }: Recomme
                 {hasMedications && (
                   <div className="py-4">
                     <h4 className="text-sm font-medium mb-2 flex items-center">
-                      <Medication className="h-4 w-4 mr-1 text-muted-foreground" />
+                      <Pill className="h-4 w-4 mr-1 text-muted-foreground" />
                       Medications
                     </h4>
                     <ul className="space-y-1 text-sm list-disc pl-5">

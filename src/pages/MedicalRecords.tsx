@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
 import RecordsSearchFilters from "@/components/medical-records/RecordsSearchFilters";
 import RecordsContent from "@/components/medical-records/RecordsContent";
@@ -40,7 +39,11 @@ export default function MedicalRecords() {
     const newRecord = {
       id: reportData.id,
       patientId: reportData.patientId,
-      patientName: patientMap[reportData.patientId]?.name || "Unknown Patient",
+      patientName: patientMap[reportData.patientId] 
+        ? (typeof patientMap[reportData.patientId] === 'string' 
+            ? patientMap[reportData.patientId] as string 
+            : (patientMap[reportData.patientId] as any).name || "Unknown Patient")
+        : "Unknown Patient",
       recordType: reportData.reportType,
       date: reportData.date,
       doctor: "",  // These fields could be filled from the reportData if available
