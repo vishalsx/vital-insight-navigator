@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import RecordsHeader from "@/components/medical-records/RecordsHeader";
 import RecordsSearchFilters from "@/components/medical-records/RecordsSearchFilters";
@@ -35,6 +36,8 @@ export default function MedicalRecords() {
   const [scanReportDialogOpen, setScanReportDialogOpen] = useState(false);
 
   const handleScanComplete = (reportData: ReportData) => {
+    console.log("Received scan report data in MedicalRecords component:", reportData);
+    
     // Convert the scanned report data to a medical record format and create it
     const newRecord = {
       id: reportData.id,

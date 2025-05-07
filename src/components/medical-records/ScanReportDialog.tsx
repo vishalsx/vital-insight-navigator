@@ -97,49 +97,49 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
 
   const parseWebhookResponse = (responseText: string): MedicalRecommendation | null => {
     try {
-      console.log("Attempting to parse webhook response:", responseText);
+      console.log("ScanReportDialog: Attempting to parse webhook response:", responseText);
       
       // First try to parse the entire text as JSON
       let webhookData: WebhookRecommendationResponse | null = null;
       
       try {
         webhookData = JSON.parse(responseText);
-        console.log("Successfully parsed entire response as JSON:", webhookData);
+        console.log("ScanReportDialog: Successfully parsed entire response as JSON:", webhookData);
       } catch (e) {
-        console.error("Failed to parse entire response as JSON:", e);
+        console.error("ScanReportDialog: Failed to parse entire response as JSON:", e);
         // Try to find and extract a JSON object
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
             webhookData = JSON.parse(jsonMatch[0]);
-            console.log("Successfully extracted and parsed JSON object from response:", webhookData);
+            console.log("ScanReportDialog: Successfully extracted and parsed JSON object from response:", webhookData);
           } catch (innerE) {
-            console.error("Failed to parse extracted JSON object:", innerE);
+            console.error("ScanReportDialog: Failed to parse extracted JSON object:", innerE);
           }
         } else {
-          console.error("No JSON object found in response");
+          console.error("ScanReportDialog: No JSON object found in response");
         }
       }
       
       if (!webhookData) {
-        console.error("Could not parse webhook data");
+        console.error("ScanReportDialog: Could not parse webhook data");
         return null;
       }
       
       // Extract the recommendation output if it exists
       if (webhookData.recommendation?.output) {
         const outputStr = webhookData.recommendation.output;
-        console.log("Recommendation output string:", outputStr);
+        console.log("ScanReportDialog: Recommendation output string:", outputStr);
         
         // Try to extract JSON from markdown code block
         const jsonBlockMatch = outputStr.match(/```json\s*([\s\S]*?)\s*```/);
         if (jsonBlockMatch && jsonBlockMatch[1]) {
           try {
             const recommendation = JSON.parse(jsonBlockMatch[1]);
-            console.log("Successfully parsed JSON from code block:", recommendation);
+            console.log("ScanReportDialog: Successfully parsed JSON from code block:", recommendation);
             return recommendation;
           } catch (e) {
-            console.error("Failed to parse JSON from code block:", e);
+            console.error("ScanReportDialog: Failed to parse JSON from code block:", e);
           }
         }
         
@@ -148,10 +148,10 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         if (jsonMatch && jsonMatch[1]) {
           try {
             const recommendation = JSON.parse(jsonMatch[1]);
-            console.log("Successfully parsed JSON directly from output:", recommendation);
+            console.log("ScanReportDialog: Successfully parsed JSON directly from output:", recommendation);
             return recommendation;
           } catch (e) {
-            console.error("Failed to parse JSON directly from output:", e);
+            console.error("ScanReportDialog: Failed to parse JSON directly from output:", e);
           }
         }
       }
@@ -160,14 +160,14 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       if (webhookData.recommendation && 
           typeof webhookData.recommendation === 'object' && 
           !webhookData.recommendation.output) {
-        console.log("Found recommendation object directly:", webhookData.recommendation);
+        console.log("ScanReportDialog: Found recommendation object directly:", webhookData.recommendation);
         return webhookData.recommendation as unknown as MedicalRecommendation;
       }
       
-      console.error("Could not find valid recommendation data in the webhook response");
+      console.error("ScanReportDialog: Could not find valid recommendation data in the webhook response");
       return null;
     } catch (error) {
-      console.error("Failed to parse webhook response:", error);
+      console.error("ScanReportDialog: Failed to parse webhook response:", error);
       return null;
     }
   };
@@ -213,6 +213,7 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
       }
       // Process PDF file if provided and no webhook response was parsed
       else if (pdfFile) {
+        console.log("Processing PDF file:", pdfFile.name);
         // Call the API endpoint
         const response = await fetch(
           "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
@@ -231,44 +232,76 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         
         // Handle potential JSON parsing errors
         const responseText = await response.text();
+        console.log("Raw API response:", responseText);
         
-        try {
-          // Try to parse as JSON
-          result = JSON.parse(responseText);
-          console.log("API response parsed:", result);
-        } catch (parseError) {
-          console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
-          // Use mock data if parsing fails
-          result = null;
+        recommendation = parseWebhookResponse(responseText);
+        if (recommendation) {
+          console.log("Successfully parsed API response to recommendation:", recommendation);
+        } else {
+          console.error("Failed to parse API response to recommendation");
           toast({
             title: "Warning",
-            description: "Received invalid response format. Using default values.",
+            description: "Could not parse API response. Using default values.",
             variant: "destructive",
           });
         }
       }
       
-      // Use API result if available, otherwise use mock data
-      const analysisResult: ReportAnalysis = result?.analysis || {
-        summary: "Patient shows elevated blood glucose levels and mild hypertension.",
-        diagnosis: "Type 2 Diabetes Mellitus (E11.9) with early signs of hypertension (I10).",
-        recommendations: [
+      // Create analysis result from recommendation or use default
+      const analysisResult: ReportAnalysis = {
+        summary: recommendation?.additional_notes || "Patient shows elevated blood glucose levels and mild hypertension.",
+        diagnosis: recommendation?.primary_diagnosis || "Type 2 Diabetes Mellitus (E11.9) with early signs of hypertension (I10).",
+        recommendations: [],
+        confidence: 0.89,
+      };
+      
+      // Collect recommendations from different categories
+      let allRecommendations: string[] = [];
+      
+      if (recommendation?.recommendations) {
+        // Add further tests
+        if (recommendation.recommendations.further_tests) {
+          if (Array.isArray(recommendation.recommendations.further_tests)) {
+            allRecommendations = [...allRecommendations, ...recommendation.recommendations.further_tests];
+          } else {
+            allRecommendations.push(recommendation.recommendations.further_tests);
+          }
+        }
+        
+        // Add medications
+        if (recommendation.recommendations.medications) {
+          if (Array.isArray(recommendation.recommendations.medications)) {
+            allRecommendations = [...allRecommendations, ...recommendation.recommendations.medications];
+          } else {
+            allRecommendations.push(recommendation.recommendations.medications);
+          }
+        }
+        
+        // Add lifestyle advice
+        if (recommendation.recommendations.lifestyle_advice) {
+          if (Array.isArray(recommendation.recommendations.lifestyle_advice)) {
+            allRecommendations = [...allRecommendations, ...recommendation.recommendations.lifestyle_advice];
+          } else {
+            allRecommendations.push(recommendation.recommendations.lifestyle_advice);
+          }
+        }
+        
+        // Add follow-up
+        if (recommendation.recommendations.follow_up) {
+          allRecommendations.push(`Follow-up: ${recommendation.recommendations.follow_up}`);
+        }
+      }
+
+      // If we have recommendations, use them, otherwise use default ones
+      if (allRecommendations.length > 0) {
+        analysisResult.recommendations = allRecommendations;
+      } else {
+        analysisResult.recommendations = [
           "Monitor blood glucose levels daily",
           "Dietary modifications: reduce carbohydrate intake",
           "Increase physical activity to 30 minutes of moderate exercise daily",
           "Consider Metformin 500mg if lifestyle changes ineffective",
-        ],
-        confidence: 0.89,
-      };
-
-      // Ensure recommendations is an array
-      if (!Array.isArray(analysisResult.recommendations)) {
-        analysisResult.recommendations = [analysisResult.recommendations || "Please review manually"];
-      }
-      
-      // Ensure confidence is a number
-      if (typeof analysisResult.confidence !== 'number') {
-        analysisResult.confidence = 0.5;
+        ];
       }
 
       const newReport: ReportData = {
@@ -281,6 +314,8 @@ const ScanReportDialog = ({ open, onOpenChange, onScanComplete }: ScanReportDial
         analysis: analysisResult,
         recommendation: recommendation,
       };
+
+      console.log("Final report data:", newReport);
 
       if (onScanComplete) {
         onScanComplete(newReport);

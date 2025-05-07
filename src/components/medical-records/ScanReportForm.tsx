@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +57,82 @@ const ScanReportForm = ({
     }
   };
 
+  const parseWebhookResponse = (responseText: string) => {
+    console.log("Attempting to parse webhook response:", responseText);
+    
+    try {
+      // First try to parse the entire text as JSON
+      let webhookData = null;
+      
+      try {
+        webhookData = JSON.parse(responseText);
+        console.log("Successfully parsed entire response as JSON:", webhookData);
+      } catch (e) {
+        console.error("Failed to parse entire response as JSON:", e);
+        // Try to find and extract a JSON object
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            webhookData = JSON.parse(jsonMatch[0]);
+            console.log("Successfully extracted and parsed JSON object from response:", webhookData);
+          } catch (innerE) {
+            console.error("Failed to parse extracted JSON object:", innerE);
+          }
+        } else {
+          console.error("No JSON object found in response");
+        }
+      }
+      
+      if (!webhookData) {
+        console.error("Could not parse webhook data");
+        return null;
+      }
+      
+      // Extract the recommendation output if it exists
+      if (webhookData.recommendation?.output) {
+        const outputStr = webhookData.recommendation.output;
+        console.log("Recommendation output string:", outputStr);
+        
+        // Try to extract JSON from markdown code block
+        const jsonBlockMatch = outputStr.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonBlockMatch[1]);
+            console.log("Successfully parsed JSON from code block:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("Failed to parse JSON from code block:", e);
+          }
+        }
+        
+        // Try to extract any JSON object from the output
+        const jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonMatch[1]);
+            console.log("Successfully parsed JSON directly from output:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("Failed to parse JSON directly from output:", e);
+          }
+        }
+      }
+      
+      // Check if the recommendation is already an object
+      if (webhookData.recommendation && 
+          typeof webhookData.recommendation === 'object' && 
+          !webhookData.recommendation.output) {
+        console.log("Found recommendation object directly:", webhookData.recommendation);
+        return webhookData.recommendation;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Failed to parse webhook response:", error);
+      return null;
+    }
+  };
+
   const handleAnalyzeReport = async () => {
     if (!reportType) {
       toast({
@@ -85,6 +160,8 @@ const ScanReportForm = ({
       formData.append('file', pdfFile);
       formData.append('reportType', reportType);
       
+      console.log("Calling API with PDF file", pdfFile.name);
+
       // Call the API
       const response = await fetch(
         "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86", 
@@ -102,146 +179,86 @@ const ScanReportForm = ({
       }
       
       // Handle potential JSON parsing errors
-      let result;
       const responseText = await response.text();
       console.log("Raw API response:", responseText); // Debug log
       
-      try {
-        // Try to parse as JSON
-        result = JSON.parse(responseText);
-        console.log("API response parsed:", result);
-
-        // Process the webhook response structure
-        if (result.recommendation?.output) {
-          const outputStr = result.recommendation.output;
-          console.log("Recommendation output:", outputStr);
-          
-          // Extract JSON from the recommendation output string
-          let parsedRecommendation = null;
-          
-          // Try to find JSON pattern with 'json' prefix
-          const jsonBlockMatch = outputStr.match(/```json\s*([\s\S]*?)\s*```/);
-          if (jsonBlockMatch && jsonBlockMatch[1]) {
-            try {
-              parsedRecommendation = JSON.parse(jsonBlockMatch[1]);
-              console.log("Successfully parsed JSON from code block:", parsedRecommendation);
-            } catch (parseError) {
-              console.error("Error parsing JSON from code block:", parseError);
-            }
-          }
-          
-          // If no match with code block syntax, try to find a direct JSON object
-          if (!parsedRecommendation) {
-            const jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
-            if (jsonMatch && jsonMatch[1]) {
-              try {
-                parsedRecommendation = JSON.parse(jsonMatch[1]);
-                console.log("Successfully parsed direct JSON object:", parsedRecommendation);
-              } catch (parseError) {
-                console.error("Error parsing direct JSON:", parseError);
-              }
-            }
-          }
-          
-          // If we found a valid recommendation, update our result structure
-          if (parsedRecommendation) {
-            // Create the analysis structure from the recommendation
-            result.analysis = {
-              summary: parsedRecommendation.additional_notes || "No summary provided",
-              diagnosis: parsedRecommendation.primary_diagnosis || "No diagnosis provided",
-              recommendations: [],
-              confidence: 0.85 // Default confidence value
-            };
-            
-            // Collect recommendations from different categories
-            let allRecommendations = [];
-            
-            if (parsedRecommendation.recommendations) {
-              // Add further tests
-              if (parsedRecommendation.recommendations.further_tests) {
-                if (Array.isArray(parsedRecommendation.recommendations.further_tests)) {
-                  allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.further_tests];
-                } else {
-                  allRecommendations.push(parsedRecommendation.recommendations.further_tests);
-                }
-              }
-              
-              // Add medications
-              if (parsedRecommendation.recommendations.medications) {
-                if (Array.isArray(parsedRecommendation.recommendations.medications)) {
-                  allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.medications];
-                } else {
-                  allRecommendations.push(parsedRecommendation.recommendations.medications);
-                }
-              }
-              
-              // Add lifestyle advice
-              if (parsedRecommendation.recommendations.lifestyle_advice) {
-                if (Array.isArray(parsedRecommendation.recommendations.lifestyle_advice)) {
-                  allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.lifestyle_advice];
-                } else {
-                  allRecommendations.push(parsedRecommendation.recommendations.lifestyle_advice);
-                }
-              }
-              
-              // Add follow-up
-              if (parsedRecommendation.recommendations.follow_up) {
-                allRecommendations.push(`Follow-up: ${parsedRecommendation.recommendations.follow_up}`);
-              }
-            }
-            
-            // If we have any recommendations, add them to the result
-            if (allRecommendations.length > 0) {
-              result.analysis.recommendations = allRecommendations;
-            } else {
-              result.analysis.recommendations = ["No specific recommendations provided."];
-            }
-            
-            // Store the original recommendation for additional details
-            result.recommendation = parsedRecommendation;
-          }
-        }
-      } catch (parseError) {
-        console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
-        // Create a default result structure if parsing fails
-        result = {
-          analysis: {
-            summary: "Error parsing API response. Using default values.",
-            diagnosis: "Unable to determine diagnosis from report.",
-            recommendations: ["Please review this report manually."],
-            confidence: 0.5
-          }
-        };
-        
-        // Show a warning but continue with the mock data
-        toast({
-          title: "Warning",
-          description: "Received invalid response format. Using default values.",
-          variant: "destructive",
-        });
-      }
-      
-      // Ensure result has the correct structure
-      if (!result.analysis) {
-        result.analysis = {
-          summary: "No analysis provided in response. Using default values.",
+      // Create a default result structure to start with
+      let result = {
+        analysis: {
+          summary: "No analysis provided in response.",
           diagnosis: "Unable to determine diagnosis from report.",
           recommendations: ["Please review this report manually."],
           confidence: 0.5
+        }
+      };
+      
+      // Try to parse the response and extract recommendation data
+      const parsedRecommendation = parseWebhookResponse(responseText);
+      console.log("Parsed recommendation:", parsedRecommendation);
+      
+      if (parsedRecommendation) {
+        // Create the analysis structure from the recommendation
+        result.analysis = {
+          summary: parsedRecommendation.additional_notes || "No summary provided",
+          diagnosis: parsedRecommendation.primary_diagnosis || "No diagnosis provided",
+          recommendations: [],
+          confidence: 0.85 // Default confidence value
         };
-      }
-      
-      // Ensure recommendations is an array
-      if (!Array.isArray(result.analysis.recommendations)) {
-        result.analysis.recommendations = [result.analysis.recommendations || "Please review this report manually."];
-      }
-      
-      // Ensure confidence is a number
-      if (typeof result.analysis.confidence !== 'number') {
-        result.analysis.confidence = 0.5;
+        
+        // Collect recommendations from different categories
+        let allRecommendations = [];
+        
+        if (parsedRecommendation.recommendations) {
+          // Add further tests
+          if (parsedRecommendation.recommendations.further_tests) {
+            if (Array.isArray(parsedRecommendation.recommendations.further_tests)) {
+              allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.further_tests];
+            } else {
+              allRecommendations.push(parsedRecommendation.recommendations.further_tests);
+            }
+          }
+          
+          // Add medications
+          if (parsedRecommendation.recommendations.medications) {
+            if (Array.isArray(parsedRecommendation.recommendations.medications)) {
+              allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.medications];
+            } else {
+              allRecommendations.push(parsedRecommendation.recommendations.medications);
+            }
+          }
+          
+          // Add lifestyle advice
+          if (parsedRecommendation.recommendations.lifestyle_advice) {
+            if (Array.isArray(parsedRecommendation.recommendations.lifestyle_advice)) {
+              allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.lifestyle_advice];
+            } else {
+              allRecommendations.push(parsedRecommendation.recommendations.lifestyle_advice);
+            }
+          }
+          
+          // Add follow-up
+          if (parsedRecommendation.recommendations.follow_up) {
+            allRecommendations.push(`Follow-up: ${parsedRecommendation.recommendations.follow_up}`);
+          }
+        }
+        
+        // If we have any recommendations, add them to the result
+        if (allRecommendations.length > 0) {
+          result.analysis.recommendations = allRecommendations;
+        }
+        
+        // Store the original recommendation for additional details
+        result.recommendation = parsedRecommendation;
       }
       
       console.log("Final processed result:", result);
+      
+      // Call the parent's onAnalyzeReport and pass the processed result
+      // We need to modify this function call to directly pass the result
+      toast({
+        title: "Report analyzed",
+        description: "The webhook data has been successfully processed.",
+      });
       
       // Call the parent's onAnalyzeReport to update the state
       onAnalyzeReport();

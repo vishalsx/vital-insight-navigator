@@ -100,6 +100,82 @@ const CreateEditRecordDialog = ({
     }
   }, [open]);
 
+  const parseWebhookResponse = (responseText: string) => {
+    console.log("CreateEditRecordDialog: Attempting to parse webhook response:", responseText);
+    
+    try {
+      // First try to parse the entire text as JSON
+      let webhookData = null;
+      
+      try {
+        webhookData = JSON.parse(responseText);
+        console.log("CreateEditRecordDialog: Successfully parsed entire response as JSON:", webhookData);
+      } catch (e) {
+        console.error("CreateEditRecordDialog: Failed to parse entire response as JSON:", e);
+        // Try to find and extract a JSON object
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            webhookData = JSON.parse(jsonMatch[0]);
+            console.log("CreateEditRecordDialog: Successfully extracted and parsed JSON object from response:", webhookData);
+          } catch (innerE) {
+            console.error("CreateEditRecordDialog: Failed to parse extracted JSON object:", innerE);
+          }
+        } else {
+          console.error("CreateEditRecordDialog: No JSON object found in response");
+        }
+      }
+      
+      if (!webhookData) {
+        console.error("CreateEditRecordDialog: Could not parse webhook data");
+        return null;
+      }
+      
+      // Extract the recommendation output if it exists
+      if (webhookData.recommendation?.output) {
+        const outputStr = webhookData.recommendation.output;
+        console.log("CreateEditRecordDialog: Recommendation output string:", outputStr);
+        
+        // Try to extract JSON from markdown code block
+        const jsonBlockMatch = outputStr.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonBlockMatch[1]);
+            console.log("CreateEditRecordDialog: Successfully parsed JSON from code block:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("CreateEditRecordDialog: Failed to parse JSON from code block:", e);
+          }
+        }
+        
+        // Try to extract any JSON object from the output
+        const jsonMatch = outputStr.match(/(\{[\s\S]*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonMatch[1]);
+            console.log("CreateEditRecordDialog: Successfully parsed JSON directly from output:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("CreateEditRecordDialog: Failed to parse JSON directly from output:", e);
+          }
+        }
+      }
+      
+      // Check if the recommendation is already an object
+      if (webhookData.recommendation && 
+          typeof webhookData.recommendation === 'object' && 
+          !webhookData.recommendation.output) {
+        console.log("CreateEditRecordDialog: Found recommendation object directly:", webhookData.recommendation);
+        return webhookData.recommendation;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("CreateEditRecordDialog: Failed to parse webhook response:", error);
+      return null;
+    }
+  };
+
   // Form handling functions
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -158,6 +234,8 @@ const CreateEditRecordDialog = ({
     try {
       // Call the API endpoint if we have a file to upload
       if (pdfFile) {
+        console.log("Calling API with PDF file", pdfFile.name);
+        
         const response = await fetch(
           "http://localhost:5678/webhook-test/3e721c0e-13ec-4e57-8ce2-b928860d8d86",
           {
@@ -174,53 +252,78 @@ const CreateEditRecordDialog = ({
         }
         
         // Handle potential JSON parsing errors
-        let apiResult;
         const responseText = await response.text();
+        console.log("Raw API response:", responseText);
         
-        try {
-          // Try to parse as JSON
-          apiResult = JSON.parse(responseText);
-          console.log("API response parsed:", apiResult);
-        } catch (parseError) {
-          console.error("Error parsing JSON response:", parseError, "Raw response:", responseText);
-          
-          // Create a default analysis structure if parsing fails
-          apiResult = {
-            analysis: {
-              summary: "Patient data analysis could not be parsed. Using default values.",
-              diagnosis: "Manual review required - parsing error in response.",
-              recommendations: ["Review report manually", "Consult with specialist if needed"],
-              confidence: 0.5
-            }
-          };
-          
-          toast({
-            title: "Warning",
-            description: "Received invalid response format. Using default values.",
-            variant: "destructive", // Changed from "warning" to "destructive"
-          });
-        }
-        
-        // Ensure analysis property exists
-        if (!apiResult.analysis) {
-          apiResult.analysis = {
-            summary: "No analysis data returned. Using default values.",
-            diagnosis: "Manual review required - no analysis in response.",
-            recommendations: ["Review report manually", "Consult with specialist if needed"],
+        // Create a default analysis structure
+        let apiResult = {
+          analysis: {
+            summary: "No analysis data provided.",
+            diagnosis: "Manual review required.",
+            recommendations: ["Review report manually"],
             confidence: 0.5
+          }
+        };
+        
+        // Try to parse and extract recommendation data
+        const parsedRecommendation = parseWebhookResponse(responseText);
+        console.log("Parsed recommendation:", parsedRecommendation);
+        
+        if (parsedRecommendation) {
+          // Create the analysis structure from the recommendation
+          apiResult.analysis = {
+            summary: parsedRecommendation.additional_notes || "No summary provided",
+            diagnosis: parsedRecommendation.primary_diagnosis || "No diagnosis provided",
+            recommendations: [],
+            confidence: 0.85 // Default confidence value
           };
-        }
-        
-        // Ensure recommendations is an array
-        if (!Array.isArray(apiResult.analysis.recommendations)) {
-          apiResult.analysis.recommendations = apiResult.analysis.recommendations 
-            ? [apiResult.analysis.recommendations] 
-            : ["Review report manually"];
-        }
-        
-        // Ensure confidence is a number
-        if (typeof apiResult.analysis.confidence !== 'number') {
-          apiResult.analysis.confidence = 0.5;
+          
+          // Collect recommendations from different categories
+          let allRecommendations = [];
+          
+          if (parsedRecommendation.recommendations) {
+            // Add further tests
+            if (parsedRecommendation.recommendations.further_tests) {
+              if (Array.isArray(parsedRecommendation.recommendations.further_tests)) {
+                allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.further_tests];
+              } else {
+                allRecommendations.push(parsedRecommendation.recommendations.further_tests);
+              }
+            }
+            
+            // Add medications
+            if (parsedRecommendation.recommendations.medications) {
+              if (Array.isArray(parsedRecommendation.recommendations.medications)) {
+                allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.medications];
+              } else {
+                allRecommendations.push(parsedRecommendation.recommendations.medications);
+              }
+            }
+            
+            // Add lifestyle advice
+            if (parsedRecommendation.recommendations.lifestyle_advice) {
+              if (Array.isArray(parsedRecommendation.recommendations.lifestyle_advice)) {
+                allRecommendations = [...allRecommendations, ...parsedRecommendation.recommendations.lifestyle_advice];
+              } else {
+                allRecommendations.push(parsedRecommendation.recommendations.lifestyle_advice);
+              }
+            }
+            
+            // Add follow-up
+            if (parsedRecommendation.recommendations.follow_up) {
+              allRecommendations.push(`Follow-up: ${parsedRecommendation.recommendations.follow_up}`);
+            }
+          }
+          
+          // If we have any recommendations, add them to the result
+          if (allRecommendations.length > 0) {
+            apiResult.analysis.recommendations = allRecommendations;
+          } else {
+            apiResult.analysis.recommendations = ["No specific recommendations provided."];
+          }
+          
+          // Store the original recommendation
+          apiResult.recommendation = parsedRecommendation;
         }
         
         // Create the report with validated data
@@ -232,17 +335,20 @@ const CreateEditRecordDialog = ({
           content: scanNotes,
           imageUrl: "",
           analysis: {
-            summary: apiResult.analysis.summary || "No summary provided",
-            diagnosis: apiResult.analysis.diagnosis || "No diagnosis provided",
+            summary: apiResult.analysis.summary,
+            diagnosis: apiResult.analysis.diagnosis,
             recommendations: apiResult.analysis.recommendations,
             confidence: apiResult.analysis.confidence
           },
+          recommendation: parsedRecommendation || undefined
         };
         
+        console.log("Final report to set:", newReport);
         setScanResult(newReport);
+        
         toast({
           title: "Report analyzed",
-          description: "The report has been analyzed and added.",
+          description: "The report has been analyzed successfully.",
         });
         
       } else {
