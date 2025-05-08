@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -321,7 +320,15 @@ const CreateEditRecordDialog = ({
         console.log("Raw API response:", responseText);
         
         // Create a default analysis structure
-        let apiResult = {
+        let apiResult: { 
+          analysis: { 
+            summary: string; 
+            diagnosis: string; 
+            recommendations: string[]; 
+            confidence: number;
+          };
+          recommendation?: any; 
+        } = {
           analysis: {
             summary: "No analysis data provided.",
             diagnosis: "Manual review required.",
@@ -344,7 +351,7 @@ const CreateEditRecordDialog = ({
           };
           
           // Collect recommendations from different categories
-          let allRecommendations = [];
+          let allRecommendations: string[] = [];
           
           if (parsedRecommendation.recommendations) {
             // Add further tests
@@ -405,7 +412,7 @@ const CreateEditRecordDialog = ({
             recommendations: apiResult.analysis.recommendations,
             confidence: apiResult.analysis.confidence
           },
-          recommendation: parsedRecommendation || undefined
+          recommendation: apiResult.recommendation
         };
         
         console.log("Final report to set:", newReport);
@@ -419,7 +426,7 @@ const CreateEditRecordDialog = ({
       } else {
         // Use mock data if we don't have a new file (e.g., when editing)
         await new Promise(res => setTimeout(res, 1800));
-        const analysis: any = {
+        const analysis = {
           summary: "Patient shows elevated blood glucose and mild hypertension.",
           diagnosis: "Type 2 Diabetes Mellitus (E11.9), early hypertension (I10).",
           recommendations: [
