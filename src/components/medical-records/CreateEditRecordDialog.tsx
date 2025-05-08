@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -131,7 +132,42 @@ const CreateEditRecordDialog = ({
         return null;
       }
       
-      // Extract the recommendation output if it exists
+      // Handle array response
+      if (Array.isArray(webhookData)) {
+        console.log("CreateEditRecordDialog: Webhook data is an array, looking for first item with output field");
+        
+        // Find the first item with an output field
+        const firstOutput = webhookData.find(item => item.output);
+        if (firstOutput && firstOutput.output) {
+          console.log("CreateEditRecordDialog: Found output in array item:", firstOutput.output);
+          
+          // Extract JSON from markdown code block in the output
+          const jsonBlockMatch = firstOutput.output.match(/```json\s*([\s\S]*?)\s*```/);
+          if (jsonBlockMatch && jsonBlockMatch[1]) {
+            try {
+              const recommendation = JSON.parse(jsonBlockMatch[1]);
+              console.log("CreateEditRecordDialog: Successfully parsed JSON from code block in array item:", recommendation);
+              return recommendation;
+            } catch (e) {
+              console.error("CreateEditRecordDialog: Failed to parse JSON from code block in array item:", e);
+            }
+          }
+          
+          // Try to extract any JSON object from the output
+          const jsonMatch = firstOutput.output.match(/(\{[\s\S]*\})/);
+          if (jsonMatch && jsonMatch[1]) {
+            try {
+              const recommendation = JSON.parse(jsonMatch[1]);
+              console.log("CreateEditRecordDialog: Successfully parsed JSON directly from output in array item:", recommendation);
+              return recommendation;
+            } catch (e) {
+              console.error("CreateEditRecordDialog: Failed to parse JSON directly from output in array item:", e);
+            }
+          }
+        }
+      }
+      
+      // Extract the recommendation output if it exists (original logic for non-array responses)
       if (webhookData.recommendation?.output) {
         const outputStr = webhookData.recommendation.output;
         console.log("CreateEditRecordDialog: Recommendation output string:", outputStr);
@@ -157,6 +193,35 @@ const CreateEditRecordDialog = ({
             return recommendation;
           } catch (e) {
             console.error("CreateEditRecordDialog: Failed to parse JSON directly from output:", e);
+          }
+        }
+      }
+      
+      // Check if we have an output field directly
+      if (webhookData.output) {
+        console.log("CreateEditRecordDialog: Found output field directly:", webhookData.output);
+        
+        // Try to extract JSON from markdown code block
+        const jsonBlockMatch = webhookData.output.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonBlockMatch && jsonBlockMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonBlockMatch[1]);
+            console.log("CreateEditRecordDialog: Successfully parsed JSON from direct output code block:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("CreateEditRecordDialog: Failed to parse JSON from direct output code block:", e);
+          }
+        }
+        
+        // Try to extract any JSON object from the output
+        const jsonMatch = webhookData.output.match(/(\{[\s\S]*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const recommendation = JSON.parse(jsonMatch[1]);
+            console.log("CreateEditRecordDialog: Successfully parsed JSON directly from direct output:", recommendation);
+            return recommendation;
+          } catch (e) {
+            console.error("CreateEditRecordDialog: Failed to parse JSON directly from direct output:", e);
           }
         }
       }
