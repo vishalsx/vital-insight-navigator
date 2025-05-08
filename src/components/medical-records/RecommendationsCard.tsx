@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,8 @@ import {
   CalendarCheck, 
   UserPlus, 
   ListChecks, 
-  Pill 
+  Pill,
+  BookOpen 
 } from "lucide-react";
 import { MedicalRecommendation } from "@/types/medicalRecords";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -79,16 +81,19 @@ const RecommendationsCard = ({ recommendation, showPatientInfo = true }: Recomme
             <AccordionItem value="evidence">
               <AccordionTrigger className="px-4 hover:no-underline hover:bg-muted/50">
                 <div className="flex items-center text-sm font-medium">
-                  <FileText className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <BookOpen className="h-4 w-4 mr-2 text-primary" />
                   Supporting Evidence
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pt-2 pb-4">
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {Object.entries(recommendation.supporting_evidence || {}).map(([key, value]) => (
-                    <div key={key} className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="font-medium capitalize">{key.replace(/_/g, ' ')}</div>
-                      <div>{value}</div>
+                    <div 
+                      key={key} 
+                      className="p-3 border rounded-md bg-muted/40 hover:bg-muted/70 transition-colors"
+                    >
+                      <div className="font-medium capitalize text-sm">{key.replace(/_/g, ' ')}</div>
+                      <div className="text-sm mt-1">{value}</div>
                     </div>
                   ))}
                 </div>

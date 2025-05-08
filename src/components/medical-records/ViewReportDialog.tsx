@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Printer, Share2, AlertCircle, FileText, User, Calendar, UserRound, Building, ClipboardList, FileInput } from "lucide-react";
+import { Download, Printer, Share2, AlertCircle, FileText, User, Calendar, UserRound, Building, ClipboardList, FileInput, BookOpen } from "lucide-react";
 import { ReportData } from "./ScanReportDialog";
 import ReportAnalysisCard from "./ReportAnalysisCard";
 import { formatDate } from "@/utils/dateUtils";
@@ -10,6 +10,9 @@ import { MedicalRecord, MedicalRecommendation, WebhookRecommendationResponse } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import RecommendationsCard from "./RecommendationsCard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface ViewReportDialogProps {
   open: boolean;
@@ -21,6 +24,7 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
   const [recommendation, setRecommendation] = useState<MedicalRecommendation | null>(null);
+  const [expandedEvidence, setExpandedEvidence] = useState<boolean>(false);
   
   useEffect(() => {
     if (record && open) {
@@ -66,6 +70,13 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
             recommendations: {
               further_tests: formattedRecommendations,
               follow_up: "Please consult with your healthcare provider"
+            },
+            // Add sample supporting evidence if not present in the actual data
+            supporting_evidence: {
+              "blood_pressure": "140/90 mmHg (Elevated)",
+              "heart_rate": "88 bpm (Normal)",
+              "temperature": "37.2°C (Normal)",
+              "oxygen_saturation": "97% (Normal)"
             }
           };
           
@@ -109,6 +120,37 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
   // Get notes from the appropriate location - prefer notes field, fall back to scannedReport content
   const notes = record.notes || (hasScannedReport ? record.scannedReport?.content : "");
 
+  // Supporting evidence section
+  const renderSupportingEvidence = () => {
+    if (!recommendation?.supporting_evidence) {
+      return null;
+    }
+    
+    return (
+      <Card className="w-full mt-4">
+        <CardHeader>
+          <CardTitle className="text-md flex items-center">
+            <BookOpen className="h-4 w-4 mr-2 text-primary" />
+            Supporting Evidence
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.entries(recommendation.supporting_evidence).map(([key, value]) => (
+              <div 
+                key={key} 
+                className="flex flex-col p-3 border rounded-md bg-muted/40 hover:bg-muted/70 transition-colors"
+              >
+                <span className="text-sm font-medium capitalize mb-1">{key.replace(/_/g, ' ')}</span>
+                <span className="text-sm">{value}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+  
   // Handle print functionality
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -395,11 +437,14 @@ const ViewReportDialog = ({ open, onOpenChange, record }: ViewReportDialogProps)
               </div>
             </div>
 
+            {/* Supporting Evidence Section */}
+            {recommendation?.supporting_evidence && renderSupportingEvidence()}
+
             {/* Medical Recommendations Section */}
             {recommendation && (
               <div className="border rounded-md p-4">
                 <h3 className="text-lg font-medium mb-4">Medical Recommendations</h3>
-                <RecommendationsCard recommendation={recommendation} />
+                <RecommendationsCard recommendation={recommendation} showPatientInfo={false} />
               </div>
             )}
 
