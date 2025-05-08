@@ -1,14 +1,13 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText } from "lucide-react";
+import { Plus } from "lucide-react";
 
 interface RecordsHeaderProps {
-  onScanReport?: (() => void) | undefined;
   onCreateRecord: () => void;
 }
 
-const RecordsHeader = ({ onScanReport, onCreateRecord }: RecordsHeaderProps) => {
+const RecordsHeader = ({ onCreateRecord }: RecordsHeaderProps) => {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -18,11 +17,6 @@ const RecordsHeader = ({ onScanReport, onCreateRecord }: RecordsHeaderProps) => 
         </p>
       </div>
       <div className="flex gap-2">
-        {onScanReport && (
-          <Button variant="outline" onClick={onScanReport}>
-            <FileText className="mr-2 h-4 w-4" /> Scan Report
-          </Button>
-        )}
         <Button onClick={onCreateRecord}>
           <Plus className="mr-2 h-4 w-4" /> Create New Record
         </Button>
