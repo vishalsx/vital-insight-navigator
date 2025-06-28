@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Paperclip, Mic, MicOff } from "lucide-react";
+import { Send, Paperclip, Mic, MicOff, Brain } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "./FileUpload";
 import VoiceRecorder from "./VoiceRecorder";
