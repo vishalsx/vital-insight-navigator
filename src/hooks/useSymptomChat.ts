@@ -46,9 +46,19 @@ export function useSymptomChat() {
       }
 
       const data = await response.json();
+      console.log('N8N Response:', data);
       
-      // Add AI response - handle different possible response formats
-      const aiResponse = data.response || data.message || data.text || "I've analyzed your symptoms but couldn't provide a response.";
+      // Parse the new response format - expect array with output field
+      let aiResponse = "I've analyzed your symptoms but couldn't provide a response.";
+      
+      if (Array.isArray(data) && data.length > 0 && data[0].output) {
+        aiResponse = data[0].output;
+      } else if (data.output) {
+        aiResponse = data.output;
+      } else if (data.response || data.message || data.text) {
+        aiResponse = data.response || data.message || data.text;
+      }
+      
       addMessage(aiResponse, 'ai');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -92,9 +102,19 @@ export function useSymptomChat() {
       }
 
       const data = await response.json();
+      console.log('N8N File Response:', data);
       
-      // Add AI response - handle different possible response formats
-      const aiResponse = data.response || data.message || data.text || "I've processed your files but couldn't provide a response.";
+      // Parse the new response format for file uploads
+      let aiResponse = "I've processed your files but couldn't provide a response.";
+      
+      if (Array.isArray(data) && data.length > 0 && data[0].output) {
+        aiResponse = data[0].output;
+      } else if (data.output) {
+        aiResponse = data.output;
+      } else if (data.response || data.message || data.text) {
+        aiResponse = data.response || data.message || data.text;
+      }
+      
       addMessage(aiResponse, 'ai');
     } catch (error) {
       console.error('Error processing files:', error);
