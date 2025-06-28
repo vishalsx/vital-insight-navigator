@@ -11,7 +11,8 @@ import {
   Layers, 
   AlertCircle, 
   PieChart,
-  Heart 
+  Heart,
+  Brain
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -19,6 +20,7 @@ const navItems = [
   { icon: Home, label: "Dashboard", href: "/" },
   { icon: Users, label: "Patients", href: "/patients" },
   { icon: FileText, label: "Medical Records", href: "/records" },
+  { icon: Brain, label: "Symptom Analyser", href: "/symptom-analyser" },
   { icon: BarChart2, label: "Analytics", href: "/analytics" },
   { icon: Calendar, label: "Appointments", href: "/appointments" },
   { icon: Layers, label: "Resources", href: "/resources" },

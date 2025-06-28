@@ -10,6 +10,7 @@ import NotFound from "./NotFound";
 import Appointments from "./Appointments";
 import Resources from "./Resources";
 import Settings from "./Settings";
+import SymptomAnalyser from "./SymptomAnalyser";
 
 const Index = () => {
   return (
@@ -19,7 +20,8 @@ const Index = () => {
         <Route path="patients" element={<PatientsList />} />
         <Route path="patients/:id" element={<PatientDetails />} />
         <Route path="records" element={<MedicalRecords />} />
-        <Route path="records/:id" element={<PatientDetails />} /> {/* Added route for medical record details */}
+        <Route path="records/:id" element={<PatientDetails />} />
+        <Route path="symptom-analyser" element={<SymptomAnalyser />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="resources" element={<Resources />} />
