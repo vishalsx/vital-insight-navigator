@@ -42,13 +42,31 @@ export function useSymptomChat() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Check if response has content
+      const contentType = response.headers.get('content-type');
+      const responseText = await response.text();
+      
+      console.log('Raw response:', responseText);
+      console.log('Content-Type:', contentType);
+      
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Empty response from server');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid JSON response from server');
+      }
+      
       console.log('N8N Response:', data);
       
-      // Parse the new response format - expect array with output field
+      // Parse the response format - expect array with output field
       let aiResponse = "I've analyzed your symptoms but couldn't provide a response.";
       
       if (Array.isArray(data) && data.length > 0 && data[0].output) {
@@ -64,7 +82,7 @@ export function useSymptomChat() {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: `Failed to get AI response: ${error.message}`,
         variant: "destructive",
       });
       
@@ -98,13 +116,29 @@ export function useSymptomChat() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to process files');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Check if response has content
+      const responseText = await response.text();
+      
+      console.log('Raw file response:', responseText);
+      
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Empty response from server');
+      }
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid JSON response from server');
+      }
+      
       console.log('N8N File Response:', data);
       
-      // Parse the new response format for file uploads
+      // Parse the response format for file uploads
       let aiResponse = "I've processed your files but couldn't provide a response.";
       
       if (Array.isArray(data) && data.length > 0 && data[0].output) {
@@ -120,7 +154,7 @@ export function useSymptomChat() {
       console.error('Error processing files:', error);
       toast({
         title: "Error",
-        description: "Failed to process uploaded files. Please try again.",
+        description: `Failed to process uploaded files: ${error.message}`,
         variant: "destructive",
       });
       
