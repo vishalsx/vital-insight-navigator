@@ -5,9 +5,17 @@ import { Message } from "@/components/symptom-analyser/ChatInterface";
 
 const N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/4944170f-cdbf-4b36-8cfe-60175c8e869b";
 
+type ConversationHistory = {
+  role: 'user' | 'bot';
+  content: string;
+}[];
+
 export function useSymptomChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId] = useState(() => crypto.randomUUID());
+  const [conversationHistory, setConversationHistory] = useState<ConversationHistory>([]);
+  const [isConversationComplete, setIsConversationComplete] = useState(false);
   const { toast } = useToast();
 
   const addMessage = (text: string, sender: 'user' | 'ai', attachments?: File[]) => {
@@ -23,22 +31,46 @@ export function useSymptomChat() {
     return newMessage;
   };
 
+  const updateConversationHistory = (userMessage: string, botResponse: string) => {
+    setConversationHistory(prev => [
+      ...prev,
+      { role: 'user', content: userMessage },
+      { role: 'bot', content: botResponse }
+    ]);
+  };
+
   const sendMessage = async (text: string) => {
+    // Don't allow new messages after conversation is complete
+    if (isConversationComplete) {
+      toast({
+        title: "Conversation Complete",
+        description: "The symptom analysis is complete. Start a new session for additional questions.",
+        variant: "default",
+      });
+      return;
+    }
+
     // Add user message
     addMessage(text, 'user');
     setIsLoading(true);
 
     try {
-      // Call n8n webhook
+      // Prepare payload with conversation history
+      const payload = {
+        sessionId,
+        message: text,
+        history: conversationHistory
+      };
+
+      console.log('Sending payload to n8n:', payload);
+
+      // Call n8n webhook with conversation history
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          message: text,
-          type: 'symptom_analysis'
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -46,11 +78,9 @@ export function useSymptomChat() {
       }
 
       // Check if response has content
-      const contentType = response.headers.get('content-type');
       const responseText = await response.text();
       
       console.log('Raw response:', responseText);
-      console.log('Content-Type:', contentType);
       
       if (!responseText || responseText.trim() === '') {
         throw new Error('Empty response from server');
@@ -66,18 +96,36 @@ export function useSymptomChat() {
       
       console.log('N8N Response:', data);
       
-      // Parse the response format - expect array with output field
-      let aiResponse = "I've analyzed your symptoms but couldn't provide a response.";
+      // Handle the new response format with isFinal flag
+      let aiResponse = "I'm having trouble processing your request right now.";
+      let isFinalResponse = false;
       
-      if (Array.isArray(data) && data.length > 0 && data[0].output) {
+      // Check for the new response format
+      if (data.message && typeof data.isFinal === 'boolean') {
+        aiResponse = data.message;
+        isFinalResponse = data.isFinal;
+      }
+      // Fallback to old format for backward compatibility
+      else if (Array.isArray(data) && data.length > 0 && data[0].output) {
         aiResponse = data[0].output;
       } else if (data.output) {
         aiResponse = data.output;
-      } else if (data.response || data.message || data.text) {
-        aiResponse = data.response || data.message || data.text;
+      } else if (data.response || data.text) {
+        aiResponse = data.response || data.text;
       }
       
+      // Add AI response to messages
       addMessage(aiResponse, 'ai');
+      
+      // Update conversation history
+      updateConversationHistory(text, aiResponse);
+      
+      // Check if this is the final response
+      if (isFinalResponse) {
+        setIsConversationComplete(true);
+        console.log('Conversation completed with final response');
+      }
+      
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -97,6 +145,16 @@ export function useSymptomChat() {
   };
 
   const sendMessageWithFiles = async (text: string, files: File[]) => {
+    // Don't allow file uploads after conversation is complete
+    if (isConversationComplete) {
+      toast({
+        title: "Conversation Complete", 
+        description: "The symptom analysis is complete. Start a new session for additional questions.",
+        variant: "default",
+      });
+      return;
+    }
+
     // Add user message with files
     addMessage(text, 'user', files);
     setIsLoading(true);
@@ -104,11 +162,14 @@ export function useSymptomChat() {
     try {
       // Prepare form data for file upload to n8n
       const formData = new FormData();
+      formData.append('sessionId', sessionId);
       formData.append('message', text);
-      formData.append('type', 'symptom_analysis_with_files');
+      formData.append('history', JSON.stringify(conversationHistory));
       files.forEach((file, index) => {
         formData.append(`file_${index}`, file);
       });
+
+      console.log('Sending file payload to n8n with session:', sessionId);
 
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
@@ -138,18 +199,36 @@ export function useSymptomChat() {
       
       console.log('N8N File Response:', data);
       
-      // Parse the response format for file uploads
+      // Handle the response format for file uploads
       let aiResponse = "I've processed your files but couldn't provide a response.";
+      let isFinalResponse = false;
       
-      if (Array.isArray(data) && data.length > 0 && data[0].output) {
+      // Check for the new response format
+      if (data.message && typeof data.isFinal === 'boolean') {
+        aiResponse = data.message;
+        isFinalResponse = data.isFinal;
+      }
+      // Fallback to old format for backward compatibility
+      else if (Array.isArray(data) && data.length > 0 && data[0].output) {
         aiResponse = data[0].output;
       } else if (data.output) {
         aiResponse = data.output;
-      } else if (data.response || data.message || data.text) {
-        aiResponse = data.response || data.message || data.text;
+      } else if (data.response || data.text) {
+        aiResponse = data.response || data.text;
       }
       
+      // Add AI response
       addMessage(aiResponse, 'ai');
+      
+      // Update conversation history
+      updateConversationHistory(text, aiResponse);
+      
+      // Check if this is the final response
+      if (isFinalResponse) {
+        setIsConversationComplete(true);
+        console.log('Conversation completed with final response from file upload');
+      }
+      
     } catch (error) {
       console.error('Error processing files:', error);
       toast({
@@ -168,10 +247,18 @@ export function useSymptomChat() {
     }
   };
 
+  const resetConversation = () => {
+    setMessages([]);
+    setConversationHistory([]);
+    setIsConversationComplete(false);
+  };
+
   return {
     messages,
     isLoading,
+    isConversationComplete,
     sendMessage,
     sendMessageWithFiles,
+    resetConversation,
   };
 }
