@@ -3,19 +3,11 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@/components/symptom-analyser/ChatInterface";
 
-const N8N_WEBHOOK_URL = "http://localhost:5678/webhook-test/4944170f-cdbf-4b36-8cfe-60175c8e869b";
-
-type ConversationHistory = {
-  role: 'user' | 'bot';
-  content: string;
-}[];
+const CHAT_SERVICE_URL = "http://localhost:5678/webhook/1305c6bb-cfeb-45ce-91ef-6d6754c60c4f/chat";
 
 export function useSymptomChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
-  const [conversationHistory, setConversationHistory] = useState<ConversationHistory>([]);
-  const [isConversationComplete, setIsConversationComplete] = useState(false);
   const { toast } = useToast();
 
   const addMessage = (text: string, sender: 'user' | 'ai', attachments?: File[]) => {
@@ -31,55 +23,27 @@ export function useSymptomChat() {
     return newMessage;
   };
 
-  const updateConversationHistory = (userMessage: string, botResponse: string) => {
-    setConversationHistory(prev => [
-      ...prev,
-      { role: 'user', content: userMessage },
-      { role: 'bot', content: botResponse }
-    ]);
-  };
-
   const sendMessage = async (text: string) => {
-    // Don't allow new messages after conversation is complete
-    if (isConversationComplete) {
-      toast({
-        title: "Conversation Complete",
-        description: "The symptom analysis is complete. Start a new session for additional questions.",
-        variant: "default",
-      });
-      return;
-    }
-
     // Add user message
     addMessage(text, 'user');
     setIsLoading(true);
 
     try {
-      // Prepare payload with conversation history
-      const payload = {
-        sessionId,
-        message: text,
-        history: conversationHistory
-      };
+      console.log('Sending message to chat service:', text);
 
-      console.log('Sending payload to n8n:', payload);
-
-      // Call n8n webhook with conversation history
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(CHAT_SERVICE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ message: text }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Check if response has content
       const responseText = await response.text();
-      
       console.log('Raw response:', responseText);
       
       if (!responseText || responseText.trim() === '') {
@@ -94,37 +58,23 @@ export function useSymptomChat() {
         throw new Error('Invalid JSON response from server');
       }
       
-      console.log('N8N Response:', data);
+      console.log('Chat service response:', data);
       
-      // Handle the new response format with isFinal flag
+      // Extract AI response from the service response
       let aiResponse = "I'm having trouble processing your request right now.";
-      let isFinalResponse = false;
       
-      // Check for the new response format
-      if (data.message && typeof data.isFinal === 'boolean') {
+      if (data.response) {
+        aiResponse = data.response;
+      } else if (data.message) {
         aiResponse = data.message;
-        isFinalResponse = data.isFinal;
-      }
-      // Fallback to old format for backward compatibility
-      else if (Array.isArray(data) && data.length > 0 && data[0].output) {
-        aiResponse = data[0].output;
-      } else if (data.output) {
-        aiResponse = data.output;
-      } else if (data.response || data.text) {
-        aiResponse = data.response || data.text;
+      } else if (data.text) {
+        aiResponse = data.text;
+      } else if (typeof data === 'string') {
+        aiResponse = data;
       }
       
       // Add AI response to messages
       addMessage(aiResponse, 'ai');
-      
-      // Update conversation history
-      updateConversationHistory(text, aiResponse);
-      
-      // Check if this is the final response
-      if (isFinalResponse) {
-        setIsConversationComplete(true);
-        console.log('Conversation completed with final response');
-      }
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -145,33 +95,21 @@ export function useSymptomChat() {
   };
 
   const sendMessageWithFiles = async (text: string, files: File[]) => {
-    // Don't allow file uploads after conversation is complete
-    if (isConversationComplete) {
-      toast({
-        title: "Conversation Complete", 
-        description: "The symptom analysis is complete. Start a new session for additional questions.",
-        variant: "default",
-      });
-      return;
-    }
-
     // Add user message with files
     addMessage(text, 'user', files);
     setIsLoading(true);
 
     try {
-      // Prepare form data for file upload to n8n
+      // Prepare form data for file upload
       const formData = new FormData();
-      formData.append('sessionId', sessionId);
       formData.append('message', text);
-      formData.append('history', JSON.stringify(conversationHistory));
       files.forEach((file, index) => {
         formData.append(`file_${index}`, file);
       });
 
-      console.log('Sending file payload to n8n with session:', sessionId);
+      console.log('Sending files to chat service');
 
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(CHAT_SERVICE_URL, {
         method: 'POST',
         body: formData,
       });
@@ -180,9 +118,7 @@ export function useSymptomChat() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Check if response has content
       const responseText = await response.text();
-      
       console.log('Raw file response:', responseText);
       
       if (!responseText || responseText.trim() === '') {
@@ -197,37 +133,23 @@ export function useSymptomChat() {
         throw new Error('Invalid JSON response from server');
       }
       
-      console.log('N8N File Response:', data);
+      console.log('Chat service file response:', data);
       
-      // Handle the response format for file uploads
+      // Extract AI response from the service response
       let aiResponse = "I've processed your files but couldn't provide a response.";
-      let isFinalResponse = false;
       
-      // Check for the new response format
-      if (data.message && typeof data.isFinal === 'boolean') {
+      if (data.response) {
+        aiResponse = data.response;
+      } else if (data.message) {
         aiResponse = data.message;
-        isFinalResponse = data.isFinal;
-      }
-      // Fallback to old format for backward compatibility
-      else if (Array.isArray(data) && data.length > 0 && data[0].output) {
-        aiResponse = data[0].output;
-      } else if (data.output) {
-        aiResponse = data.output;
-      } else if (data.response || data.text) {
-        aiResponse = data.response || data.text;
+      } else if (data.text) {
+        aiResponse = data.text;
+      } else if (typeof data === 'string') {
+        aiResponse = data;
       }
       
       // Add AI response
       addMessage(aiResponse, 'ai');
-      
-      // Update conversation history
-      updateConversationHistory(text, aiResponse);
-      
-      // Check if this is the final response
-      if (isFinalResponse) {
-        setIsConversationComplete(true);
-        console.log('Conversation completed with final response from file upload');
-      }
       
     } catch (error) {
       console.error('Error processing files:', error);
@@ -249,14 +171,12 @@ export function useSymptomChat() {
 
   const resetConversation = () => {
     setMessages([]);
-    setConversationHistory([]);
-    setIsConversationComplete(false);
   };
 
   return {
     messages,
     isLoading,
-    isConversationComplete,
+    isConversationComplete: false,
     sendMessage,
     sendMessageWithFiles,
     resetConversation,

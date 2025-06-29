@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Paperclip, Mic, MicOff, Brain, RotateCcw } from "lucide-react";
+import { Send, Paperclip, Mic, MicOff, Brain } from "lucide-react";
 import ChatMessage from "./ChatMessage";
 import FileUpload from "./FileUpload";
 import VoiceRecorder from "./VoiceRecorder";
@@ -25,7 +25,6 @@ export default function ChatInterface() {
   const {
     messages,
     isLoading,
-    isConversationComplete,
     sendMessage,
     sendMessageWithFiles,
     resetConversation
@@ -67,11 +66,6 @@ export default function ChatInterface() {
     setIsRecording(false);
   };
 
-  const handleResetConversation = () => {
-    resetConversation();
-    setMessage("");
-  };
-
   return (
     <div className="flex flex-col flex-1 bg-gray-50">
       {/* Messages Area */}
@@ -96,28 +90,6 @@ export default function ChatInterface() {
                 <span className="text-sm text-gray-500">Analyzing...</span>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Conversation Complete Banner */}
-        {isConversationComplete && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Brain className="h-5 w-5 text-green-600" />
-              <span className="text-green-800 font-medium">Analysis Complete</span>
-            </div>
-            <p className="text-green-700 text-sm mb-3">
-              Your symptom analysis is complete. You can start a new consultation if needed.
-            </p>
-            <Button 
-              onClick={handleResetConversation}
-              variant="outline"
-              size="sm"
-              className="border-green-300 text-green-700 hover:bg-green-100"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Start New Analysis
-            </Button>
           </div>
         )}
         
@@ -148,7 +120,6 @@ export default function ChatInterface() {
             size="icon"
             onClick={() => setShowFileUpload(true)}
             className="shrink-0"
-            disabled={isConversationComplete}
           >
             <Paperclip className="h-4 w-4" />
           </Button>
@@ -158,7 +129,6 @@ export default function ChatInterface() {
             size="icon"
             onClick={() => setIsRecording(!isRecording)}
             className={`shrink-0 ${isRecording ? 'bg-red-50 border-red-200' : ''}`}
-            disabled={isConversationComplete}
           >
             {isRecording ? (
               <MicOff className="h-4 w-4 text-red-500" />
@@ -172,17 +142,13 @@ export default function ChatInterface() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={
-                isConversationComplete 
-                  ? "Analysis complete - start new session to continue" 
-                  : "Describe your symptoms..."
-              }
+              placeholder="Describe your symptoms..."
               className="flex-1"
-              disabled={isLoading || isConversationComplete}
+              disabled={isLoading}
             />
             <Button 
               onClick={handleSendMessage}
-              disabled={!message.trim() || isLoading || isConversationComplete}
+              disabled={!message.trim() || isLoading}
             >
               <Send className="h-4 w-4" />
             </Button>
