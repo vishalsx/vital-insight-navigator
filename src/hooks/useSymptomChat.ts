@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@/components/symptom-analyser/ChatInterface";
 
-const CHAT_SERVICE_URL = "http://localhost:5678/webhook/1305c6bb-cfeb-45ce-91ef-6d6754c60c4f/chat";
+const GEMINI_API_KEY = 'AIzaSyDw4VxnWXKWmRoydin_rm97gzov65G2Ncw';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 export function useSymptomChat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,48 +30,46 @@ export function useSymptomChat() {
     setIsLoading(true);
 
     try {
-      console.log('Sending message to chat service:', text);
+      console.log('Sending message to Gemini:', text);
 
-      const response = await fetch(CHAT_SERVICE_URL, {
+      const systemPrompt = `You are a medical symptom analyzer. Your task is to:
+1. Ask 5-8 relevant questions about the user's symptoms to gather more information
+2. After getting answers, provide a preliminary assessment including:
+   - Possible conditions
+   - Recommended precautions
+   - Suggested medical tests or consultations
+3. Always remind users to consult with healthcare professionals for proper diagnosis
+
+Current user message: ${text}
+
+Please respond in a conversational, helpful manner.`;
+
+      const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: systemPrompt
+            }]
+          }]
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const responseText = await response.text();
-      console.log('Raw response:', responseText);
+      const data = await response.json();
+      console.log('Gemini response:', data);
       
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('Empty response from server');
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('Invalid JSON response from server');
-      }
-      
-      console.log('Chat service response:', data);
-      
-      // Extract AI response from the service response
+      // Extract AI response from Gemini response
       let aiResponse = "I'm having trouble processing your request right now.";
       
-      if (data.response) {
-        aiResponse = data.response;
-      } else if (data.message) {
-        aiResponse = data.message;
-      } else if (data.text) {
-        aiResponse = data.text;
-      } else if (typeof data === 'string') {
-        aiResponse = data;
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+        aiResponse = data.candidates[0].content.parts[0].text;
       }
       
       // Add AI response to messages
@@ -100,52 +99,49 @@ export function useSymptomChat() {
     setIsLoading(true);
 
     try {
-      // Prepare form data for file upload
-      const formData = new FormData();
-      formData.append('message', text);
-      files.forEach((file, index) => {
-        formData.append(`file_${index}`, file);
-      });
+      console.log('Processing files with Gemini');
 
-      console.log('Sending files to chat service');
+      // For now, we'll process the text message and inform about file limitations
+      const systemPrompt = `You are a medical symptom analyzer. The user has uploaded ${files.length} file(s) and provided this message: "${text}". 
 
-      const response = await fetch(CHAT_SERVICE_URL, {
+Please acknowledge the file upload and explain that while you can see they've uploaded medical documents, you'll need them to describe the contents or key findings from those documents in text for you to provide the most accurate symptom analysis.
+
+Your task is to:
+1. Ask 5-8 relevant questions about their symptoms to gather more information
+2. After getting answers, provide a preliminary assessment including:
+   - Possible conditions
+   - Recommended precautions
+   - Suggested medical tests or consultations
+3. Always remind users to consult with healthcare professionals for proper diagnosis
+
+Please respond in a conversational, helpful manner.`;
+
+      const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: systemPrompt
+            }]
+          }]
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const responseText = await response.text();
-      console.log('Raw file response:', responseText);
+      const data = await response.json();
+      console.log('Gemini file response:', data);
       
-      if (!responseText || responseText.trim() === '') {
-        throw new Error('Empty response from server');
-      }
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('Invalid JSON response from server');
-      }
+      // Extract AI response from Gemini response
+      let aiResponse = "I've acknowledged your file upload but need more information to help you properly.";
       
-      console.log('Chat service file response:', data);
-      
-      // Extract AI response from the service response
-      let aiResponse = "I've processed your files but couldn't provide a response.";
-      
-      if (data.response) {
-        aiResponse = data.response;
-      } else if (data.message) {
-        aiResponse = data.message;
-      } else if (data.text) {
-        aiResponse = data.text;
-      } else if (typeof data === 'string') {
-        aiResponse = data;
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
+        aiResponse = data.candidates[0].content.parts[0].text;
       }
       
       // Add AI response
