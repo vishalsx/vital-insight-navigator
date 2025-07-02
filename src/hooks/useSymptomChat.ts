@@ -9,6 +9,12 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 export function useSymptomChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationState, setConversationState] = useState({
+    currentQuestion: 0,
+    answers: [] as string[],
+    userSymptoms: '',
+    isComplete: false
+  });
   const { toast } = useToast();
 
   const addMessage = (text: string, sender: 'user' | 'ai', attachments?: File[]) => {
@@ -32,17 +38,72 @@ export function useSymptomChat() {
     try {
       console.log('Sending message to Gemini:', text);
 
-      const systemPrompt = `You are a medical symptom analyzer. Your task is to:
-1. Ask 5-8 relevant questions about the user's symptoms to gather more information
-2. After getting answers, provide a preliminary assessment including:
-   - Possible conditions
-   - Recommended precautions
-   - Suggested medical tests or consultations
-3. Always remind users to consult with healthcare professionals for proper diagnosis
+      let systemPrompt = '';
+      
+      // Determine what stage of conversation we're in
+      if (conversationState.currentQuestion === 0) {
+        // First interaction - store symptoms and ask first question
+        setConversationState(prev => ({
+          ...prev,
+          userSymptoms: text,
+          currentQuestion: 1
+        }));
+        
+        systemPrompt = `You are a medical symptom analyzer. The user has described their symptoms: "${text}"
 
-Current user message: ${text}
+Please respond with empathy and ask ONLY the first question to understand their condition better. Ask about the location of their symptoms.
 
-Please respond in a conversational, helpful manner.`;
+Keep your response conversational and ask only ONE question. Do not list multiple questions.`;
+
+      } else if (conversationState.currentQuestion <= 6 && !conversationState.isComplete) {
+        // Store the answer and ask next question
+        const newAnswers = [...conversationState.answers, text];
+        const nextQuestion = conversationState.currentQuestion + 1;
+        
+        setConversationState(prev => ({
+          ...prev,
+          answers: newAnswers,
+          currentQuestion: nextQuestion
+        }));
+
+        const questions = [
+          "the intensity/severity of the pain or discomfort on a scale of 1-10",
+          "how long you've been experiencing these symptoms",
+          "any other symptoms you're experiencing alongside the main symptom",
+          "any recent triggers, stress, or changes in your routine",
+          "if you've experienced similar symptoms before and how often",
+          "any medications you're currently taking or recent changes to them"
+        ];
+
+        if (nextQuestion <= 6) {
+          systemPrompt = `The user has been describing their symptoms. Their initial symptoms were: "${conversationState.userSymptoms}"
+
+Their previous answers: ${newAnswers.join(', ')}
+
+Now ask them about ${questions[nextQuestion - 2]}. Keep it conversational and ask only ONE question.`;
+        } else {
+          // Time to provide assessment
+          setConversationState(prev => ({ ...prev, isComplete: true }));
+          
+          systemPrompt = `Based on the user's symptoms and answers, provide a comprehensive assessment:
+
+Initial symptoms: "${conversationState.userSymptoms}"
+Answers provided: ${newAnswers.join(', ')}
+
+Please provide:
+1. Possible conditions (mention these are preliminary assessments only)
+2. Immediate precautions they should take
+3. Recommended medical tests or specialist consultations
+4. When to seek immediate medical attention
+
+Always emphasize that this is not a medical diagnosis and they should consult with healthcare professionals for proper evaluation and treatment.`;
+        }
+      } else {
+        // Conversation complete - general follow-up
+        systemPrompt = `The symptom analysis conversation is complete. The user is asking: "${text}"
+
+Respond helpfully while reminding them that for any new symptoms or concerns, they should consult with healthcare professionals. If they want to start a new symptom analysis, let them know they can describe new symptoms.`;
+      }
 
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
@@ -167,12 +228,18 @@ Please respond in a conversational, helpful manner.`;
 
   const resetConversation = () => {
     setMessages([]);
+    setConversationState({
+      currentQuestion: 0,
+      answers: [],
+      userSymptoms: '',
+      isComplete: false
+    });
   };
 
   return {
     messages,
     isLoading,
-    isConversationComplete: false,
+    isConversationComplete: conversationState.isComplete,
     sendMessage,
     sendMessageWithFiles,
     resetConversation,
