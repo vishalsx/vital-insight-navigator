@@ -162,20 +162,64 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
     try {
       console.log('Processing files with Gemini');
 
-      // For now, we'll process the text message and inform about file limitations
-      const systemPrompt = `You are a medical symptom analyzer. The user has uploaded ${files.length} file(s) and provided this message: "${text}". 
+      // Process each file
+      const fileContents = await Promise.all(
+        files.map(async (file) => {
+          return new Promise<{name: string, content: string, type: string}>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (typeof reader.result === 'string') {
+                resolve({
+                  name: file.name,
+                  content: reader.result,
+                  type: file.type
+                });
+              } else {
+                reject(new Error('Failed to read file as text'));
+              }
+            };
+            reader.onerror = () => reject(reader.error);
+            
+            // Read as text for most document types, base64 for images
+            if (file.type.startsWith('image/')) {
+              reader.readAsDataURL(file);
+            } else {
+              reader.readAsText(file);
+            }
+          });
+        })
+      );
 
-Please acknowledge the file upload and explain that while you can see they've uploaded medical documents, you'll need them to describe the contents or key findings from those documents in text for you to provide the most accurate symptom analysis.
+      // Create comprehensive prompt for CBC analysis
+      const systemPrompt = `You are an expert medical document analyzer specializing in Complete Blood Count (CBC) reports. 
 
-Your task is to:
-1. Ask 5-8 relevant questions about their symptoms to gather more information
-2. After getting answers, provide a preliminary assessment including:
-   - Possible conditions
-   - Recommended precautions
-   - Suggested medical tests or consultations
-3. Always remind users to consult with healthcare professionals for proper diagnosis
+UPLOADED FILES:
+${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`).join('\n\n')}
 
-Please respond in a conversational, helpful manner.`;
+INSTRUCTIONS:
+1. FIRST, determine if any of these documents are CBC (Complete Blood Count) reports
+2. If CBC report found:
+   - Extract ALL medical markers and their values
+   - Analyze each marker against normal ranges
+   - Identify any abnormal values and their clinical significance
+   - Provide comprehensive analysis including:
+     * DIAGNOSIS: Based on the CBC findings
+     * POTENTIAL MEDICATION: Suggested treatments (mention these are preliminary suggestions)
+     * PRECAUTIONS: Important precautions to take
+     * LIFESTYLE CHANGES: Recommended lifestyle modifications
+     * PREVENTION: Preventive measures for the future
+
+3. If NOT a CBC report:
+   - Explain what type of document it appears to be
+   - Suggest they upload a CBC report for blood analysis
+   - If it's another medical document, provide general guidance
+
+4. ALWAYS emphasize:
+   - These are preliminary assessments only
+   - Must consult with healthcare professionals for proper diagnosis
+   - Do not self-medicate based on this analysis
+
+Please provide a detailed, structured response.`;
 
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
@@ -196,10 +240,10 @@ Please respond in a conversational, helpful manner.`;
       }
 
       const data = await response.json();
-      console.log('Gemini file response:', data);
+      console.log('Gemini file analysis response:', data);
       
       // Extract AI response from Gemini response
-      let aiResponse = "I've acknowledged your file upload but need more information to help you properly.";
+      let aiResponse = "I've processed your uploaded documents but encountered an issue with the analysis.";
       
       if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0]) {
         aiResponse = data.candidates[0].content.parts[0].text;
@@ -218,7 +262,7 @@ Please respond in a conversational, helpful manner.`;
       
       // Add error message
       addMessage(
-        "I'm having trouble processing your uploaded files. Please try uploading them again or describe your symptoms in text.",
+        "I'm having trouble processing your uploaded documents. Please try uploading them again or describe your symptoms in text.",
         'ai'
       );
     } finally {
