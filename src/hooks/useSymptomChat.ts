@@ -2,6 +2,10 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Message } from "@/components/symptom-analyser/ChatInterface";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const GEMINI_API_KEY = 'AIzaSyDw4VxnWXKWmRoydin_rm97gzov65G2Ncw';
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -162,31 +166,72 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
     try {
       console.log('Processing files with Gemini');
 
-      // Process each file
+      // Helper function to parse PDF files
+      const parsePDFFile = async (file: File): Promise<string> => {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let extractedText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          extractedText += pageText + '\n';
+        }
+        
+        return extractedText;
+      };
+
+      // Process each file with proper parsing
       const fileContents = await Promise.all(
         files.map(async (file) => {
-          return new Promise<{name: string, content: string, type: string}>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              if (typeof reader.result === 'string') {
-                resolve({
-                  name: file.name,
-                  content: reader.result,
-                  type: file.type
-                });
-              } else {
-                reject(new Error('Failed to read file as text'));
-              }
-            };
-            reader.onerror = () => reject(reader.error);
-            
-            // Read as text for most document types, base64 for images
-            if (file.type.startsWith('image/')) {
-              reader.readAsDataURL(file);
+          try {
+            if (file.type === 'application/pdf') {
+              // Parse PDF using PDF.js
+              const extractedText = await parsePDFFile(file);
+              return {
+                name: file.name,
+                content: extractedText,
+                type: file.type,
+                parsed: true
+              };
             } else {
-              reader.readAsText(file);
+              // Handle other file types
+              return new Promise<{name: string, content: string, type: string, parsed: boolean}>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === 'string') {
+                    resolve({
+                      name: file.name,
+                      content: reader.result,
+                      type: file.type,
+                      parsed: false
+                    });
+                  } else {
+                    reject(new Error('Failed to read file as text'));
+                  }
+                };
+                reader.onerror = () => reject(reader.error);
+                
+                // Read as text for most document types, base64 for images
+                if (file.type.startsWith('image/')) {
+                  reader.readAsDataURL(file);
+                } else {
+                  reader.readAsText(file);
+                }
+              });
             }
-          });
+          } catch (error) {
+            console.error(`Error processing file ${file.name}:`, error);
+            return {
+              name: file.name,
+              content: `Error processing file: ${error.message}`,
+              type: file.type,
+              parsed: false
+            };
+          }
         })
       );
 
