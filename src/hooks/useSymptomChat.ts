@@ -169,7 +169,9 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
           try {
             if (file.type === 'application/pdf') {
               // Parse PDF using the utility function
+              console.log('Processing PDF file:', file.name);
               const extractedText = await extractTextFromPDF(file);
+              console.log('PDF extraction successful for', file.name, '- extracted text length:', extractedText.length);
               return {
                 name: file.name,
                 content: extractedText,
@@ -273,6 +275,7 @@ Use only what is provided in the input JSON for your reasoning and conclusions.
 UPLOADED FILES:
 ${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`).join('\n\n')}`;
 
+      console.log('Sending request to Gemini with extracted file contents:', fileContents.map(f => ({ name: f.name, type: f.type, contentLength: f.content.length })));
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: {
