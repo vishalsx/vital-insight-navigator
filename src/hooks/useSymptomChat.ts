@@ -166,22 +166,73 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
     try {
       console.log('Processing files with Gemini');
 
-      // Helper function to parse PDF files
+      // Helper function to parse PDF files as binary and extract JSON data
       const parsePDFFile = async (file: File): Promise<string> => {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let extractedText = '';
-        
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          // Convert binary data to string to search for JSON patterns
+          const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
+          
+          // Try to find JSON data patterns in the binary content
+          const jsonPatterns = [
+            /"textBlocks":\s*\[[\s\S]*?\]/g,
+            /"blocks":\s*\[[\s\S]*?\]/g,
+            /"text":\s*\[[\s\S]*?\]/g,
+            /\{[\s\S]*?"textBlocks"[\s\S]*?\}/g,
+            /\{[\s\S]*?"blocks"[\s\S]*?\}/g
+          ];
+          
+          let extractedData = null;
+          
+          // Try each pattern to find JSON data
+          for (const pattern of jsonPatterns) {
+            const matches = binaryString.match(pattern);
+            if (matches && matches.length > 0) {
+              try {
+                // Try to parse the first match as JSON
+                const jsonStr = matches[0].replace(/[\x00-\x1F\x7F-\x9F]/g, ''); // Remove control characters
+                extractedData = JSON.parse(`{${jsonStr}}`);
+                break;
+              } catch (e) {
+                continue;
+              }
+            }
+          }
+          
+          // If we found JSON data, process it using the provided logic
+          if (extractedData) {
+            const textBlocks = extractedData.textBlocks || extractedData.blocks || extractedData.text || [];
+            
+            // Normalize to array of text segments
+            let textArray = Array.isArray(textBlocks)
+              ? textBlocks.map(block => typeof block === 'string' ? block : block.text || '')
+              : [String(textBlocks)];
+
+            // Join all text blocks into a clean single string
+            const fullText = textArray
+              .map(t => t.trim())
+              .filter(Boolean)
+              .join('\n\n'); // add spacing between blocks
+
+            return fullText.replace(/\\n/g, '\n').trim();
+          }
+          
+          // Fallback: try to extract readable text directly from binary
+          const readableText = binaryString
+            .replace(/[\x00-\x08\x0E-\x1F\x7F-\x9F]/g, '') // Remove most control chars but keep \n, \r, \t
+            .replace(/(.)\1{10,}/g, '$1') // Remove long repeated characters
+            .split(/\s+/)
+            .filter(word => word.length > 1 && /[a-zA-Z0-9]/.test(word))
             .join(' ');
-          extractedText += pageText + '\n';
+            
+          return readableText || 'Unable to extract readable content from PDF';
+          
+        } catch (error) {
+          console.error('Error parsing PDF as binary:', error);
+          return `Error parsing PDF: ${error.message}`;
         }
-        
-        return extractedText;
       };
 
       // Process each file with proper parsing
