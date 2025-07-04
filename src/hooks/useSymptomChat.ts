@@ -286,36 +286,64 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
         })
       );
 
-      // Create comprehensive prompt for CBC analysis
-      const systemPrompt = `You are an expert medical document analyzer specializing in Complete Blood Count (CBC) reports. 
+      // Create comprehensive prompt for medical document analysis
+      const systemPrompt = `You are a medical document analysis assistant.
+
+You will receive patient information extracted from clinical PDF documents, provided in structured JSON format.
+
+Your responsibilities:
+
+Carefully analyze the following fields, if present:
+
+"chief_complaint"
+
+"history_of_present_illness"
+
+"diagnosis"
+
+"vital_signs"
+
+"lab_results"
+
+"medications"
+
+"treatment_plan"
+
+Based on the available clinical context, identify the primary diagnosis.
+
+Generate medically sound, concise recommendations for a healthcare professional, which may include:
+
+Further tests or investigations
+
+Medication suggestions (with rationale)
+
+Lifestyle or follow-up advice
+
+Use precise and professional medical language.
+
+If data is insufficient, conflicting, or ambiguous, explicitly state that a clear conclusion cannot be drawn.
+
+Output Format:
+
+Return the result in strict JSON format only. The JSON must contain the following top-level keys:
+{
+  "primary_diagnosis": "",
+  "supporting_evidence": {},
+  "recommendations": {
+    "further_tests": [],
+    "medications": [],
+    "lifestyle_advice": [],
+    "follow_up": ""
+  },
+  "additional_notes": ""
+}
+
+Do not fabricate or hallucinate clinical facts.
+
+Use only what is provided in the input JSON for your reasoning and conclusions.
 
 UPLOADED FILES:
-${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`).join('\n\n')}
-
-INSTRUCTIONS:
-1. FIRST, determine if any of these documents are CBC (Complete Blood Count) reports
-2. If CBC report found:
-   - Extract ALL medical markers and their values
-   - Analyze each marker against normal ranges
-   - Identify any abnormal values and their clinical significance
-   - Provide comprehensive analysis including:
-     * DIAGNOSIS: Based on the CBC findings
-     * POTENTIAL MEDICATION: Suggested treatments (mention these are preliminary suggestions)
-     * PRECAUTIONS: Important precautions to take
-     * LIFESTYLE CHANGES: Recommended lifestyle modifications
-     * PREVENTION: Preventive measures for the future
-
-3. If NOT a CBC report:
-   - Explain what type of document it appears to be
-   - Suggest they upload a CBC report for blood analysis
-   - If it's another medical document, provide general guidance
-
-4. ALWAYS emphasize:
-   - These are preliminary assessments only
-   - Must consult with healthcare professionals for proper diagnosis
-   - Do not self-medicate based on this analysis
-
-Please provide a detailed, structured response.`;
+${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`).join('\n\n')}`;
 
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
