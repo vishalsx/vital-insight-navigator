@@ -217,63 +217,30 @@ Respond helpfully while reminding them that for any new symptoms or concerns, th
       );
 
       // Create comprehensive prompt for medical document analysis
-      const systemPrompt = `You are a medical document analysis assistant.
+      const systemPrompt = `You are a helpful medical document analysis assistant. A user has uploaded medical documents and wants you to analyze them.
 
-You will receive patient information extracted from clinical PDF documents, provided in structured JSON format.
+Please analyze the uploaded medical documents and provide insights in a conversational manner. Look for:
 
-Your responsibilities:
+- Patient information and demographics
+- Medical history and current conditions  
+- Test results, lab values, and vital signs
+- Medications and treatments
+- Doctor's notes and recommendations
+- Any concerning findings or abnormal values
 
-Carefully analyze the following fields, if present:
+Provide your analysis in a clear, conversational format that includes:
+1. A summary of what type of document(s) were uploaded
+2. Key medical findings from the documents
+3. Any notable test results or values
+4. Recommendations for follow-up care if appropriate
+5. Important points the patient should discuss with their healthcare provider
 
-"chief_complaint"
+Always remind the user that this analysis is for informational purposes only and they should consult with their healthcare provider for medical advice.
 
-"history_of_present_illness"
-
-"diagnosis"
-
-"vital_signs"
-
-"lab_results"
-
-"medications"
-
-"treatment_plan"
-
-Based on the available clinical context, identify the primary diagnosis.
-
-Generate medically sound, concise recommendations for a healthcare professional, which may include:
-
-Further tests or investigations
-
-Medication suggestions (with rationale)
-
-Lifestyle or follow-up advice
-
-Use precise and professional medical language.
-
-If data is insufficient, conflicting, or ambiguous, explicitly state that a clear conclusion cannot be drawn.
-
-Output Format:
-
-Return the result in strict JSON format only. The JSON must contain the following top-level keys:
-{
-  "primary_diagnosis": "",
-  "supporting_evidence": {},
-  "recommendations": {
-    "further_tests": [],
-    "medications": [],
-    "lifestyle_advice": [],
-    "follow_up": ""
-  },
-  "additional_notes": ""
-}
-
-Do not fabricate or hallucinate clinical facts.
-
-Use only what is provided in the input JSON for your reasoning and conclusions.
+If you cannot extract meaningful medical information from the documents, explain what you found instead and suggest the user try uploading clearer documents or describe their symptoms directly.
 
 UPLOADED FILES:
-${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 2000)}${file.content.length > 2000 ? '...' : ''}`).join('\n\n')}`;
+${fileContents.map(file => `File: ${file.name}\nType: ${file.type}\nContent: ${file.content.substring(0, 3000)}${file.content.length > 3000 ? '...' : ''}`).join('\n\n')}`;
 
       console.log('Sending request to Gemini with extracted file contents:', fileContents.map(f => ({ name: f.name, type: f.type, contentLength: f.content.length })));
       const response = await fetch(GEMINI_API_URL, {
