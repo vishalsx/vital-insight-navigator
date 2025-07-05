@@ -1,16 +1,34 @@
-import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
+let pdfjs: any = null;
+let isPdfjsLoaded = false;
 
-// Disable PDF.js worker for Vite compatibility - this will use the main thread
-// This is slower but more reliable in browser environments
-GlobalWorkerOptions.workerSrc = null;
+// Dynamically import PDF.js to avoid breaking the app if it fails
+const loadPdfjs = async () => {
+  if (isPdfjsLoaded) return pdfjs;
+  
+  try {
+    pdfjs = await import('pdfjs-dist');
+    // Disable PDF.js worker for Vite compatibility - this will use the main thread
+    pdfjs.GlobalWorkerOptions.workerSrc = null;
+    isPdfjsLoaded = true;
+    return pdfjs;
+  } catch (error) {
+    console.error('Failed to load PDF.js:', error);
+    throw new Error('PDF processing is not available');
+  }
+};
 
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
     console.log('Starting PDF extraction for file:', file.name, 'Size:', file.size);
+    console.log('Loading PDF.js module...');
+    
+    // Load PDF.js dynamically
+    const pdfjsModule = await loadPdfjs();
+    
     console.log('Using main thread (no worker) for PDF processing...');
     
     const arrayBuffer = await file.arrayBuffer();
-    const pdf: PDFDocumentProxy = await getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjsModule.getDocument({ data: arrayBuffer }).promise;
     
     console.log('PDF loaded successfully. Number of pages:', pdf.numPages);
 
@@ -21,7 +39,7 @@ export async function extractTextFromPDF(file: File): Promise<string> {
       const content = await page.getTextContent();
 
       const pageText = content.items
-        .map((item) => {
+        .map((item: any) => {
           if ('str' in item) {
             return item.str;
           }
