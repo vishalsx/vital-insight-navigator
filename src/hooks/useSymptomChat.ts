@@ -67,21 +67,27 @@ Keep your response conversational and ask only ONE question. Do not list multipl
           currentQuestion: nextQuestion
         }));
 
-        const questions = [
-          "the intensity/severity of the pain or discomfort on a scale of 1-10",
-          "how long you've been experiencing these symptoms",
-          "any other symptoms you're experiencing alongside the main symptom",
-          "any recent triggers, stress, or changes in your routine",
-          "if you've experienced similar symptoms before and how often",
-          "any medications you're currently taking or recent changes to them"
-        ];
-
         if (nextQuestion <= 6) {
-          systemPrompt = `The user has been describing their symptoms. Their initial symptoms were: "${conversationState.userSymptoms}"
+          // Build conversation history for context
+          const conversationHistory = [
+            `Initial symptoms: "${conversationState.userSymptoms}"`,
+            ...newAnswers.map((answer, index) => `Question ${index + 1} answer: ${answer}`)
+          ].join('\n');
 
-Their previous answers: ${newAnswers.join(', ')}
+          systemPrompt = `You are a medical symptom analyzer conducting a structured interview. Based on the conversation so far, ask the most appropriate next question to better understand the patient's condition.
 
-Now ask them about ${questions[nextQuestion - 2]}. Keep it conversational and ask only ONE question.`;
+Conversation history:
+${conversationHistory}
+
+Guidelines for the next question:
+- Ask only ONE specific question
+- Keep it conversational and empathetic
+- Focus on gathering medically relevant information
+- Consider common areas like: severity/intensity, duration, associated symptoms, triggers, medical history, medications, or other relevant factors
+- Choose the most logical next question based on what you already know
+- Avoid repeating information already gathered
+
+Ask your next question now:`;
         } else {
           // Time to provide assessment
           setConversationState(prev => ({ ...prev, isComplete: true }));
